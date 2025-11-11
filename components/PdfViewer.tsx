@@ -114,12 +114,15 @@ export default function PdfViewerClient({ src, zoom = 1, className, style }: Pdf
         const pdfjsLib = (window as any).pdfjsLib;
         if (!pdfjsLib) throw new Error("pdf.js failed to load.");
 
-        // 1) Get bytes via proxy to avoid CORS
+        // 1) Get bytes via proxy to avoid CORS (fresh buffer each call)
         const bytes = await fetchPdfArrayBuffer(src, cvToken);
         if (cancelled) return;
 
         // 2) Load with PDF.js (UMD API)
-        const loadingTask = pdfjsLib.getDocument({ data: bytes });
+        // Create a copied Uint8Array so the worker can transfer ownership
+        // without leaving our cached buffer in a detached state.
+        const data = new Uint8Array(bytes.slice(0));
+        const loadingTask = pdfjsLib.getDocument({ data });
         pdfDoc = await loadingTask.promise;
         if (cancelled || !containerRef.current) return;
 
