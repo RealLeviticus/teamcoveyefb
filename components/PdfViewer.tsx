@@ -14,8 +14,9 @@ export type PdfViewerClientProps = {
 const PDFJS_VERSION = "3.11.174";
 const PDFJS_BASE = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}`; // pdf.min.js, pdf.worker.min.js
 
-// In-memory PDF bytes cache keyed by url+token so switching tabs doesn't refetch
-const memoryPdfCache = new Map<string, ArrayBuffer>();
+// In-memory PDF cache as Blob keyed by url+token so switching tabs doesn't refetch.
+// Blob -> arrayBuffer() returns a fresh buffer each time, avoiding detached buffer errors.
+const memoryPdfCache = new Map<string, Blob>();
 
 // Dynamically load a script tag once and cache the promise
 const scriptCache = new Map<string, Promise<void>>();
@@ -40,13 +41,18 @@ async function fetchPdfArrayBuffer(simbriefUrl: string, token: string): Promise<
   const key = `${simbriefUrl}::${token}`;
 
   const cached = memoryPdfCache.get(key);
-  if (cached) return cached;
+  if (cached) {
+    return await cached.arrayBuffer();
+  }
 
   const res = await fetch(proxied, { cache: "no-store", redirect: "follow" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const bytes = await res.arrayBuffer();
-  // Cache in-memory for quick tab switches; cache-buster token changes on new OFP
-  try { memoryPdfCache.set(key, bytes); } catch { /* ignore quota errors */ }
+  // Cache as Blob; each reuse yields a fresh ArrayBuffer so pdf.js won't see a detached buffer
+  try {
+    const ct = res.headers.get("Content-Type") || "application/pdf";
+    memoryPdfCache.set(key, new Blob([bytes], { type: ct }));
+  } catch { /* ignore quota errors */ }
   return bytes;
 }
 
