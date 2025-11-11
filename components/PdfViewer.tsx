@@ -14,6 +14,9 @@ export type PdfViewerClientProps = {
 const PDFJS_VERSION = "3.11.174";
 const PDFJS_BASE = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}`; // pdf.min.js, pdf.worker.min.js
 
+// In-memory PDF bytes cache keyed by url+token so switching tabs doesn't refetch
+const memoryPdfCache = new Map<string, ArrayBuffer>();
+
 // Dynamically load a script tag once and cache the promise
 const scriptCache = new Map<string, Promise<void>>();
 function loadScriptOnce(src: string): Promise<void> {
@@ -34,9 +37,17 @@ function loadScriptOnce(src: string): Promise<void> {
 // Fetch via our proxy to avoid CORS and return ArrayBuffer
 async function fetchPdfArrayBuffer(simbriefUrl: string, token: string): Promise<ArrayBuffer> {
   const proxied = `/api/simbrief/ofp-proxy?url=${encodeURIComponent(simbriefUrl)}&cv=${encodeURIComponent(token)}`;
+  const key = `${simbriefUrl}::${token}`;
+
+  const cached = memoryPdfCache.get(key);
+  if (cached) return cached;
+
   const res = await fetch(proxied, { cache: "no-store", redirect: "follow" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.arrayBuffer();
+  const bytes = await res.arrayBuffer();
+  // Cache in-memory for quick tab switches; cache-buster token changes on new OFP
+  try { memoryPdfCache.set(key, bytes); } catch { /* ignore quota errors */ }
+  return bytes;
 }
 
 export default function PdfViewerClient({ src, zoom = 1, className, style }: PdfViewerClientProps) {
