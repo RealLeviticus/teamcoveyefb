@@ -7,7 +7,7 @@ import PdfViewer from "@/components/PdfViewer";
 import { FlightCard, type FlightSummary, type VatsimState } from "@/components/FlightCard";
 import { loadSettings, setSimbriefUsername, setVatsimCid } from "@/lib/settings";
 
-const VIEWS = ["flight", "ofp", "map", "notams", "checklists_sops", "audio", "settings"] as const;
+const VIEWS = ["flight", "ofp", "map", "notams", "wx", "checklists_sops", "audio", "settings"] as const;
 type ViewKey = (typeof VIEWS)[number];
 
 const LS_PDF = "covey_last_simbrief_pdf";
@@ -559,7 +559,7 @@ export function MainArea() {
     if (view === "notams") void fetchNotams();
   }, [view, fetchNotams]);
 
-  // Load METAR/TAF when entering NOTAMs view
+  // Load METAR/TAF when entering WX view
   const loadWx = React.useCallback(async () => {
     try {
       setLoadingWx(true); setWxError(null);
@@ -583,7 +583,7 @@ export function MainArea() {
   }, [flight]);
 
   useEffect(() => {
-    if (view === "notams") void loadWx();
+    if (view === "wx") void loadWx();
   }, [view, loadWx]);
 
   /* ---------------------- Grouping ---------------------- */
@@ -706,6 +706,7 @@ export function MainArea() {
     v === "ofp" ? "OFP"
     : v === "map" ? "Map"
     : v === "notams" ? "NOTAM"
+    : v === "wx" ? "METAR/TAF"
     : v === "checklists_sops" ? "Checklists & SOPs"
     : v === "audio" ? "Audio"
     : v === "settings" ? "Settings"
@@ -1045,55 +1046,60 @@ export function MainArea() {
               )}
                 </div>
 
-                {/* Right: METAR & TAF */}
-                <div className="lg:col-span-1 h-full overflow-auto">
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-xs opacity-60">METAR & TAF</p>
-                    <button
-                      onClick={() => void loadWx()}
-                      className="text-xs px-2 py-1 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
-                    >
-                      Refresh
-                    </button>
-                  </div>
-                  {loadingWx && <div className="text-sm">Loading weather…</div>}
-                  {wxError && <div className="text-sm text-red-600">{wxError}</div>}
-                  {!loadingWx && !wxError && (
-                    <div className="space-y-3">
-                      {(!wx || Object.keys(wx).length === 0) && (
-                        <div className="text-sm opacity-70">No stations.</div>
-                      )}
-                      {Object.entries(wx || {}).map(([sta, r]) => (
-                        <section key={sta} className="rounded-lg border border-neutral-200 dark:border-neutral-800">
-                          <header className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60">
-                            <h3 className="text-sm font-semibold">{sta}</h3>
-                          </header>
-                          <div className="p-3 space-y-2">
-                            {r.metar && (
-                              <div>
-                                <div className="text-xs opacity-60 mb-1">METAR {r.metarTime ? `(${r.metarTime})` : ""}</div>
-                                <pre className="text-xs whitespace-pre-wrap leading-snug">{r.metar}</pre>
-                              </div>
-                            )}
-                            {r.taf && (
-                              <div>
-                                <div className="text-xs opacity-60 mb-1">TAF {r.tafTime ? `(${r.tafTime})` : ""}</div>
-                                <pre className="text-xs whitespace-pre-wrap leading-snug">{r.taf}</pre>
-                              </div>
-                            )}
-                            {!r.metar && !r.taf && (
-                              <div className="text-xs opacity-70">No data.</div>
-                            )}
-                          </div>
-                        </section>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                {false && (
+                  <div className="lg:col-span-1 h-full overflow-auto"></div>
+                )}
               </div>
             </div>
           )}
 
+          {/* METAR & TAF */}
+          {view === "wx" && (
+            <div className="h-full overflow-auto">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-xs opacity-60">METAR & TAF</p>
+                <button
+                  onClick={() => void loadWx()}
+                  className="text-xs px-2 py-1 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
+                >
+                  Refresh
+                </button>
+              </div>
+              {loadingWx && <div className="text-sm">Loading weather…</div>}
+              {wxError && <div className="text-sm text-red-600">{wxError}</div>}
+              {!loadingWx && !wxError && (
+                <div className="space-y-3">
+                  {(!wx || Object.keys(wx).length === 0) && (
+                    <div className="text-sm opacity-70">No stations.</div>
+                  )}
+                  {Object.entries(wx || {}).map(([sta, r]) => (
+                    <section key={sta} className="rounded-lg border border-neutral-200 dark:border-neutral-800">
+                      <header className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60">
+                        <h3 className="text-sm font-semibold">{sta}</h3>
+                      </header>
+                      <div className="p-3 space-y-2">
+                        {r.metar && (
+                          <div>
+                            <div className="text-xs opacity-60 mb-1">METAR {r.metarTime ? `(${r.metarTime})` : ""}</div>
+                            <pre className="text-xs whitespace-pre-wrap leading-snug">{r.metar}</pre>
+                          </div>
+                        )}
+                        {r.taf && (
+                          <div>
+                            <div className="text-xs opacity-60 mb-1">TAF {r.tafTime ? `(${r.tafTime})` : ""}</div>
+                            <pre className="text-xs whitespace-pre-wrap leading-snug">{r.taf}</pre>
+                          </div>
+                        )}
+                        {!r.metar && !r.taf && (
+                          <div className="text-xs opacity-70">No data.</div>
+                        )}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {/* Checklists & SOPs */}
           {view === "checklists_sops" && (
             <div className="h-full overflow-auto">
