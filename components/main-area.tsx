@@ -311,6 +311,12 @@ export function MainArea() {
   const [loadingNotams, setLoadingNotams] = useState(false);
   const [notamError, setNotamError] = useState<string | null>(null);
 
+  // METAR/TAF (WX) for origin/destination/alternate
+  type WxReport = { metar?: string; taf?: string; metarTime?: string | null; tafTime?: string | null };
+  const [wx, setWx] = useState<Record<string, WxReport> | null>(null);
+  const [loadingWx, setLoadingWx] = useState(false);
+  const [wxError, setWxError] = useState<string | null>(null);
+
   // Expand/collapse
   const [openStations, setOpenStations] = useState<Set<string>>(new Set());
   const [openTypes, setOpenTypes] = useState<Set<string>>(new Set()); // key: `${station}|${type}`
@@ -553,6 +559,33 @@ export function MainArea() {
     if (view === "notams") void fetchNotams();
   }, [view, fetchNotams]);
 
+  // Load METAR/TAF when entering NOTAMs view
+  const loadWx = React.useCallback(async () => {
+    try {
+      setLoadingWx(true); setWxError(null);
+      const stations = [
+        flight?.origin?.icao,
+        flight?.destination?.icao,
+        (flight as any)?.alternate || null,
+      ]
+        .map((x) => (typeof x === "string" ? x.trim().toUpperCase() : ""))
+        .filter((x) => /^[A-Z]{4}$/.test(x));
+      const uniq = Array.from(new Set(stations));
+      if (!uniq.length) { setWx(null); return; }
+      const res = await fetch(`/api/wx/metar-taf?stations=${encodeURIComponent(uniq.join(","))}`, { cache: "no-store" });
+      const j = await res.json();
+      if (!res.ok || !j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
+      setWx(j.data || {});
+    } catch (e: any) {
+      setWxError(e?.message || "Failed to load METAR/TAF");
+      setWx(null);
+    } finally { setLoadingWx(false); }
+  }, [flight]);
+
+  useEffect(() => {
+    if (view === "notams") void loadWx();
+  }, [view, loadWx]);
+
   /* ---------------------- Grouping ---------------------- */
   type Grouped =
     | { stations: Map<string, Map<string, NotamItem[]>>; otherPlaces: Map<string, Map<string, NotamItem[]>> };
@@ -777,7 +810,9 @@ export function MainArea() {
 
           {/* NOTAMs */}
           {view === "notams" && (
-            <div className="h-full overflow-auto">
+            <div className="h-full overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full">
+                <div className="lg:col-span-2 h-full overflow-auto">
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-xs opacity-60">
                   {username ? `Source: SimBrief — ${username}` : "No SimBrief username set."}
@@ -1008,6 +1043,54 @@ export function MainArea() {
                   )}
                 </>
               )}
+                </div>
+
+                {/* Right: METAR & TAF */}
+                <div className="lg:col-span-1 h-full overflow-auto">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs opacity-60">METAR & TAF</p>
+                    <button
+                      onClick={() => void loadWx()}
+                      className="text-xs px-2 py-1 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  {loadingWx && <div className="text-sm">Loading weather…</div>}
+                  {wxError && <div className="text-sm text-red-600">{wxError}</div>}
+                  {!loadingWx && !wxError && (
+                    <div className="space-y-3">
+                      {(!wx || Object.keys(wx).length === 0) && (
+                        <div className="text-sm opacity-70">No stations.</div>
+                      )}
+                      {Object.entries(wx || {}).map(([sta, r]) => (
+                        <section key={sta} className="rounded-lg border border-neutral-200 dark:border-neutral-800">
+                          <header className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60">
+                            <h3 className="text-sm font-semibold">{sta}</h3>
+                          </header>
+                          <div className="p-3 space-y-2">
+                            {r.metar && (
+                              <div>
+                                <div className="text-xs opacity-60 mb-1">METAR {r.metarTime ? `(${r.metarTime})` : ""}</div>
+                                <pre className="text-xs whitespace-pre-wrap leading-snug">{r.metar}</pre>
+                              </div>
+                            )}
+                            {r.taf && (
+                              <div>
+                                <div className="text-xs opacity-60 mb-1">TAF {r.tafTime ? `(${r.tafTime})` : ""}</div>
+                                <pre className="text-xs whitespace-pre-wrap leading-snug">{r.taf}</pre>
+                              </div>
+                            )}
+                            {!r.metar && !r.taf && (
+                              <div className="text-xs opacity-70">No data.</div>
+                            )}
+                          </div>
+                        </section>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
