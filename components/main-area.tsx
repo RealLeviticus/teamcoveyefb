@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "@/components/panel";
 import PdfViewer from "@/components/PdfViewer";
 import { FlightCard, type FlightSummary, type VatsimState } from "@/components/FlightCard";
-import { loadSettings, setSimbriefUsername, setVatsimCid, setHoppieLogon, setHoppieCallsign } from "@/lib/settings";
+import { loadSettings, setSimbriefUsername, setVatsimCid, setHoppieLogon } from "@/lib/settings";
 
 const VIEWS = ["flight", "ofp", "map", "notams", "wx", "acars", "checklists_sops", "audio", "settings"] as const;
 type ViewKey = (typeof VIEWS)[number];
@@ -329,8 +329,15 @@ export function MainArea() {
   useEffect(() => {
     const s = loadSettings();
     if (s.hoppieLogon) setAcarsLogon(s.hoppieLogon);
-    if (s.hoppieCallsign) setAcarsFrom(s.hoppieCallsign);
   }, []);
+
+  // Prefer online VATSIM callsign; fall back to flight summary callsign
+  useEffect(() => {
+    const vCall = (vatsim?.callsign || "").trim();
+    const fCall = (flight?.callsign || "").trim();
+    const next = vCall || fCall || "";
+    if (next) setAcarsFrom(next.toUpperCase());
+  }, [vatsim?.callsign, flight?.callsign]);
 
   async function acarsSend() {
     try {
@@ -1154,10 +1161,10 @@ export function MainArea() {
                   <h3 className="text-sm font-semibold mb-2">Logon & Defaults</h3>
                   <label className="block text-xs opacity-70 mb-1">Hoppie Logon</label>
                   <input value={acarsLogon} onChange={(e)=>setAcarsLogon(e.target.value)} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2" />
-                  <label className="block text-xs opacity-70 mb-1">Callsign (from)</label>
-                  <input value={acarsFrom} onChange={(e)=>setAcarsFrom(e.target.value.toUpperCase())} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2" />
+                  <label className="block text-xs opacity-70 mb-1">Callsign (from) — auto from VATSIM</label>
+                  <input value={acarsFrom} readOnly className="w-full rounded-md border px-3 py-1.5 text-sm bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-700 mb-2 opacity-80" />
                   <div className="flex gap-2">
-                    <button onClick={()=>{ setHoppieLogon(acarsLogon); setHoppieCallsign(acarsFrom); }} className="text-xs px-3 py-1.5 rounded-md border bg-black text-white dark:bg-white dark:text-black border-neutral-200 dark:border-neutral-700">Save</button>
+                    <button onClick={()=>{ setHoppieLogon(acarsLogon); }} className="text-xs px-3 py-1.5 rounded-md border bg-black text-white dark:bg-white dark:text-black border-neutral-200 dark:border-neutral-700">Save</button>
                   </div>
                 </section>
 
