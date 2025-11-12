@@ -25,7 +25,10 @@ export async function GET(req: NextRequest) {
     const qs = new URLSearchParams();
     qs.set("logon", logon);
     qs.set("from", callsign);
-    qs.set("poll", "1");
+    // 'to' is ignored for poll, but docs say it must be present; use SERVER
+    qs.set("to", "SERVER");
+    // Hoppie expects a packet type, use type=poll (not poll=1)
+    qs.set("type", "poll");
 
     const r = await fetch(`${endpoint}?${qs.toString()}`, {
       cache: "no-store",
@@ -38,9 +41,19 @@ export async function GET(req: NextRequest) {
         { status: 502, headers: noStore() }
       );
     }
+    const body = (txt || "").trim();
+    // Hoppie returns plain "OK" when there are no messages
+    if (/^ok\s*$/i.test(body)) {
+      return NextResponse.json({ ok: true, messages: [] }, { headers: noStore() });
+    }
 
     // Attempt to parse lines; otherwise return raw messages
-    const lines = (txt || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    // Drop Hoppie prefaces like "OK" or "OK (CALLSIGN)"
+    const lines = body
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+      .filter((l) => !/^ok\s*(?:\(.*\))?$/i.test(l));
     const messages = lines.map((line) => {
       // Heuristic split: time|from|to|text OR from>to text
       let time: string | undefined;

@@ -30,7 +30,8 @@ export async function POST(req: NextRequest) {
     form.set("logon", logon);
     form.set("from", from);
     form.set("to", to);
-    form.set("message", text);
+    // Hoppie expects payload in the 'packet' field
+    form.set("packet", text);
     form.set("type", type);
 
     const r = await fetch(endpoint, {

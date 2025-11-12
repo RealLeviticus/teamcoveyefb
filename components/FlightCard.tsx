@@ -24,6 +24,8 @@ export type VatsimState = {
   online: boolean;
 
   // motion / pos
+  lat?: number | null;
+  lon?: number | null;
   groundspeed?: number | null;   // kts
   altitudeFt?: number | null;    // ft
   headingDeg?: number | null;    // deg
