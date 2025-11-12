@@ -1,19 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadSettings, saveSettings } from "@/lib/settings";
+import { loadSettings, saveSettings, setHoppieLogon, setHoppieCallsign } from "@/lib/settings";
 
 export function SettingsPanel() {
   const [cid, setCid] = useState("");
+  const [hoppieLogon, setLogon] = useState("");
+  const [hoppieCallsign, setCallsign] = useState("");
 
   useEffect(() => {
     const s = loadSettings();
     setCid(s.vatsimCid ?? "");
+    setLogon(s.hoppieLogon ?? "");
+    setCallsign(s.hoppieCallsign ?? "");
   }, []);
 
   function onSave() {
     const cleaned = cid.trim();
     saveSettings({ vatsimCid: cleaned || undefined });
+  }
+
+  function onSaveHoppie() {
+    setHoppieLogon(hoppieLogon);
+    setHoppieCallsign(hoppieCallsign);
   }
 
   return (
@@ -31,6 +40,28 @@ export function SettingsPanel() {
         className="rounded-lg px-3 py-2 bg-blue-600 hover:bg-blue-500"
       >
         Save
+      </button>
+
+      <hr className="border-neutral-200 dark:border-neutral-800 my-3" />
+      <label className="block text-sm opacity-80">Hoppie Logon Code</label>
+      <input
+        value={hoppieLogon}
+        onChange={(e) => setLogon(e.target.value)}
+        placeholder="e.g. ABCD"
+        className="w-full rounded-lg bg-neutral-900 px-3 py-2 outline-none ring-1 ring-neutral-700"
+      />
+      <label className="block text-sm opacity-80 mt-2">Default ACARS Callsign</label>
+      <input
+        value={hoppieCallsign}
+        onChange={(e) => setCallsign(e.target.value.toUpperCase())}
+        placeholder="e.g. COV123"
+        className="w-full rounded-lg bg-neutral-900 px-3 py-2 outline-none ring-1 ring-neutral-700"
+      />
+      <button
+        onClick={onSaveHoppie}
+        className="rounded-lg px-3 py-2 bg-blue-600 hover:bg-blue-500"
+      >
+        Save Hoppie
       </button>
     </div>
   );

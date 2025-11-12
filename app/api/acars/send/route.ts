@@ -24,19 +24,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Missing logon/from/to/text" }, { status: 400, headers: noStore() });
     }
 
-    // Placeholder: wire up to Hoppie ACARS or a relay later
-    // For safety, we do not call external services without explicit configuration
-    if (process.env.HOPPIE_ENABLE !== "1") {
+    // Submit to Hoppie ACARS system (form-encoded)
+    const endpoint = "https://www.hoppie.nl/acars/system/connect.html";
+    const form = new URLSearchParams();
+    form.set("logon", logon);
+    form.set("from", from);
+    form.set("to", to);
+    form.set("message", text);
+    form.set("type", type);
+
+    const r = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+      cache: "no-store",
+      redirect: "follow",
+    });
+    const respText = await r.text();
+    if (!r.ok) {
       return NextResponse.json(
-        { ok: false, error: "ACARS not enabled. Set HOPPIE_ENABLE=1 and configure integration." },
-        { status: 501, headers: noStore() }
+        { ok: false, error: `Hoppie HTTP ${r.status}`, response: respText?.slice(0, 200) },
+        { status: 502, headers: noStore() }
       );
     }
 
-    // TODO: Implement actual Hoppie submit here (requires network + credentials)
-    return NextResponse.json({ ok: true, queued: true }, { headers: noStore() });
+    // Hoppie typically returns plain text; consider any non-empty 200 as success
+    return NextResponse.json({ ok: true, response: (respText || "").trim() }, { headers: noStore() });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Failed to send ACARS" }, { status: 500, headers: noStore() });
   }
 }
-
