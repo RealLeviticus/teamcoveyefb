@@ -325,6 +325,9 @@ export function MainArea() {
   const [acarsSending, setAcarsSending] = useState(false);
   const [acarsError, setAcarsError] = useState<string | null>(null);
   const [acarsInbox, setAcarsInbox] = useState<Array<{ time?: string; from?: string; to?: string; text: string }>>([]);
+  const [acarsShowComposer, setAcarsShowComposer] = useState(false);
+  const seenAcarsKeysRef = useRef<Set<string>>(new Set());
+  const [acarsUnread, setAcarsUnread] = useState(0);
 
   useEffect(() => {
     const s = loadSettings();
@@ -362,11 +365,53 @@ export function MainArea() {
       const res = await fetch(`/api/acars/inbox?${qs}`, { cache: 'no-store' });
       const j = await res.json();
       if (!res.ok || !j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
-      setAcarsInbox(Array.isArray(j.messages) ? j.messages : []);
+      const msgs: Array<{ time?: string; from?: string; to?: string; text: string }> = Array.isArray(j.messages) ? j.messages : [];
+      setAcarsInbox(msgs);
+      // Unread + sound
+      let newCount = 0;
+      for (const m of msgs) {
+        const key = `${m.time || ''}|${m.from || ''}|${m.to || ''}|${m.text || ''}`;
+        if (!seenAcarsKeysRef.current.has(key)) {
+          seenAcarsKeysRef.current.add(key);
+          newCount++;
+        }
+      }
+      if (newCount > 0) {
+        if (view === 'acars') setAcarsUnread(0); else setAcarsUnread((u) => u + newCount);
+        try {
+          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = 'sine';
+          o.frequency.value = 880;
+          o.connect(g); g.connect(ctx.destination);
+          const now = ctx.currentTime;
+          g.gain.setValueAtTime(0.0001, now);
+          g.gain.exponentialRampToValueAtTime(0.1, now + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+          o.start(now); o.stop(now + 0.25);
+        } catch {}
+      }
     } catch (e: any) {
       setAcarsError(e?.message || 'Failed to load inbox');
     }
   }
+
+  // Background poll for inbox (every 20s) when logon + callsign present
+  useEffect(() => {
+    let timer: number | undefined;
+    const canPoll = Boolean(acarsLogon && acarsFrom);
+    const tick = () => { if (canPoll) void acarsLoadInbox(); };
+    if (canPoll) {
+      timer = window.setInterval(tick, 20000);
+      // initial fetch
+      void acarsLoadInbox();
+    }
+    return () => { if (timer) window.clearInterval(timer); };
+  }, [acarsLogon, acarsFrom]);
+
+  // Clear unread when opening ACARS tab
+  useEffect(() => { if (view === 'acars') setAcarsUnread(0); }, [view]);
 
   // Expand/collapse
   const [openStations, setOpenStations] = useState<Set<string>>(new Set());
@@ -800,7 +845,17 @@ export function MainArea() {
                   "border-neutral-200 dark:border-neutral-700",
                 ].join(" ")}
               >
-                {labelFor(v)}
+                {v === 'acars' ? (
+                  <span className="inline-flex items-center gap-1">
+                    <span aria-hidden>✉️</span>
+                    <span>ACARS</span>
+                    {acarsUnread > 0 && (
+                      <span className="ml-1 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-[10px] font-semibold bg-red-600 text-white">
+                        {acarsUnread}
+                      </span>
+                    )}
+                  </span>
+                ) : labelFor(v)}
               </button>
             );
           })}
@@ -1155,23 +1210,30 @@ export function MainArea() {
 
           {/* ACARS */}
           {view === "acars" && (
-            <div className="h-full overflow-auto max-w-3xl">
-              <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
-                <h3 className="text-sm font-semibold mb-2">Send Message</h3>
-                <div className="text-xs opacity-60 mb-2">
-                  Using From: {acarsFrom || '—'} {vatsim?.online ? '(VATSIM)' : ''} · Logon: {acarsLogon || 'Not set (Settings)'}
+            <div className="h-full overflow-auto">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-xs opacity-60">From: {acarsFrom || '—'} {vatsim?.online ? '(VATSIM)' : ''} · Logon: {acarsLogon || 'Not set (Settings)'}</div>
+                <div className="flex gap-2">
+                  <button onClick={()=> setAcarsShowComposer((v)=>!v)} className="text-xs px-2 py-1 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">{acarsShowComposer ? 'Close' : '+ New Message'}</button>
+                  <button onClick={()=>void acarsLoadInbox()} className="text-xs px-2 py-1 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">Refresh Inbox</button>
                 </div>
-                <label className="block text-xs opacity-70 mb-1">To (station/callsign)</label>
-                <input value={acarsTo} onChange={(e)=>setAcarsTo(e.target.value.toUpperCase())} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2" />
-                <label className="block text-xs opacity-70 mb-1">Text</label>
-                <textarea value={acarsText} onChange={(e)=>setAcarsText(e.target.value)} rows={6} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2"></textarea>
-                <div className="flex items-center gap-2">
-                  <button onClick={()=>void acarsSend()} disabled={acarsSending} className="text-xs px-3 py-1.5 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">{acarsSending ? 'Sending…' : 'Send'}</button>
-                  {acarsError && <span className="text-xs text-red-600">{acarsError}</span>}
-                </div>
-              </section>
+              </div>
 
-              <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 mt-4">
+              {acarsShowComposer && (
+                <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 mb-4">
+                  <h3 className="text-sm font-semibold mb-2">New Message</h3>
+                  <label className="block text-xs opacity-70 mb-1">To (station/callsign)</label>
+                  <input value={acarsTo} onChange={(e)=>setAcarsTo(e.target.value.toUpperCase())} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2" />
+                  <label className="block text-xs opacity-70 mb-1">Text</label>
+                  <textarea value={acarsText} onChange={(e)=>setAcarsText(e.target.value)} rows={6} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2"></textarea>
+                  <div className="flex items-center gap-2">
+                    <button onClick={()=>void acarsSend()} disabled={acarsSending} className="text-xs px-3 py-1.5 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">{acarsSending ? 'Sending…' : 'Send'}</button>
+                    {acarsError && <span className="text-xs text-red-600">{acarsError}</span>}
+                  </div>
+                </section>
+              )}
+
+              <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-sm font-semibold">Inbox</h3>
                   <button onClick={()=>void acarsLoadInbox()} className="text-xs px-2 py-1 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">Refresh</button>
