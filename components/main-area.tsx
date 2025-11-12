@@ -5,9 +5,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "@/components/panel";
 import PdfViewer from "@/components/PdfViewer";
 import { FlightCard, type FlightSummary, type VatsimState } from "@/components/FlightCard";
-import { loadSettings, setSimbriefUsername, setVatsimCid } from "@/lib/settings";
+import { loadSettings, setSimbriefUsername, setVatsimCid, setHoppieLogon, setHoppieCallsign } from "@/lib/settings";
 
-const VIEWS = ["flight", "ofp", "map", "notams", "wx", "checklists_sops", "audio", "settings"] as const;
+const VIEWS = ["flight", "ofp", "map", "notams", "wx", "acars", "checklists_sops", "audio", "settings"] as const;
 type ViewKey = (typeof VIEWS)[number];
 
 const LS_PDF = "covey_last_simbrief_pdf";
@@ -316,6 +316,50 @@ export function MainArea() {
   const [wx, setWx] = useState<Record<string, WxReport> | null>(null);
   const [loadingWx, setLoadingWx] = useState(false);
   const [wxError, setWxError] = useState<string | null>(null);
+
+  // ACARS
+  const [acarsLogon, setAcarsLogon] = useState("");
+  const [acarsFrom, setAcarsFrom] = useState("");
+  const [acarsTo, setAcarsTo] = useState("ATC");
+  const [acarsText, setAcarsText] = useState("");
+  const [acarsSending, setAcarsSending] = useState(false);
+  const [acarsError, setAcarsError] = useState<string | null>(null);
+  const [acarsInbox, setAcarsInbox] = useState<Array<{ time?: string; from?: string; to?: string; text: string }>>([]);
+
+  useEffect(() => {
+    const s = loadSettings();
+    if (s.hoppieLogon) setAcarsLogon(s.hoppieLogon);
+    if (s.hoppieCallsign) setAcarsFrom(s.hoppieCallsign);
+  }, []);
+
+  async function acarsSend() {
+    try {
+      setAcarsSending(true); setAcarsError(null);
+      const res = await fetch('/api/acars/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logon: acarsLogon, from: acarsFrom, to: acarsTo, type: 'telex', text: acarsText })
+      });
+      const j = await res.json();
+      if (!res.ok || !j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
+      setAcarsText("");
+    } catch (e: any) {
+      setAcarsError(e?.message || 'Failed to send');
+    } finally { setAcarsSending(false); }
+  }
+
+  async function acarsLoadInbox() {
+    try {
+      setAcarsError(null);
+      const qs = new URLSearchParams({ logon: acarsLogon, from: acarsFrom }).toString();
+      const res = await fetch(`/api/acars/inbox?${qs}`, { cache: 'no-store' });
+      const j = await res.json();
+      if (!res.ok || !j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
+      setAcarsInbox(Array.isArray(j.messages) ? j.messages : []);
+    } catch (e: any) {
+      setAcarsError(e?.message || 'Failed to load inbox');
+    }
+  }
 
   // Expand/collapse
   const [openStations, setOpenStations] = useState<Set<string>>(new Set());
@@ -707,6 +751,7 @@ export function MainArea() {
     : v === "map" ? "Map"
     : v === "notams" ? "NOTAM"
     : v === "wx" ? "METAR/TAF"
+    : v === "acars" ? "ACARS"
     : v === "checklists_sops" ? "Checklists & SOPs"
     : v === "audio" ? "Audio"
     : v === "settings" ? "Settings"
@@ -1098,6 +1143,52 @@ export function MainArea() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ACARS */}
+          {view === "acars" && (
+            <div className="h-full overflow-auto max-w-3xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
+                  <h3 className="text-sm font-semibold mb-2">Logon & Defaults</h3>
+                  <label className="block text-xs opacity-70 mb-1">Hoppie Logon</label>
+                  <input value={acarsLogon} onChange={(e)=>setAcarsLogon(e.target.value)} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2" />
+                  <label className="block text-xs opacity-70 mb-1">Callsign (from)</label>
+                  <input value={acarsFrom} onChange={(e)=>setAcarsFrom(e.target.value.toUpperCase())} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2" />
+                  <div className="flex gap-2">
+                    <button onClick={()=>{ setHoppieLogon(acarsLogon); setHoppieCallsign(acarsFrom); }} className="text-xs px-3 py-1.5 rounded-md border bg-black text-white dark:bg-white dark:text-black border-neutral-200 dark:border-neutral-700">Save</button>
+                  </div>
+                </section>
+
+                <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
+                  <h3 className="text-sm font-semibold mb-2">Send Message</h3>
+                  <label className="block text-xs opacity-70 mb-1">To (station/callsign)</label>
+                  <input value={acarsTo} onChange={(e)=>setAcarsTo(e.target.value.toUpperCase())} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2" />
+                  <label className="block text-xs opacity-70 mb-1">Text</label>
+                  <textarea value={acarsText} onChange={(e)=>setAcarsText(e.target.value)} rows={6} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2"></textarea>
+                  <div className="flex items-center gap-2">
+                    <button onClick={()=>void acarsSend()} disabled={acarsSending} className="text-xs px-3 py-1.5 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">{acarsSending ? 'Sending…' : 'Send'}</button>
+                    {acarsError && <span className="text-xs text-red-600">{acarsError}</span>}
+                  </div>
+                </section>
+              </div>
+
+              <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 mt-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Inbox</h3>
+                  <button onClick={()=>void acarsLoadInbox()} className="text-xs px-2 py-1 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">Refresh</button>
+                </div>
+                {acarsInbox.length === 0 && <div className="text-xs opacity-70">No messages.</div>}
+                <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                  {acarsInbox.map((m, i) => (
+                    <li key={i} className="py-2">
+                      <div className="text-[11px] opacity-60">{m.time || ''} {m.from ? `From ${m.from}` : ''} {m.to ? `To ${m.to}` : ''}</div>
+                      <div className="text-sm whitespace-pre-wrap">{m.text}</div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             </div>
           )}
           {/* Checklists & SOPs */}

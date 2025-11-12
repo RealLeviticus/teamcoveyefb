@@ -2,6 +2,8 @@
 export type AppSettings = {
   vatsimCid?: string;        // numeric string
   simbriefUsername?: string; // optional centralised username
+  hoppieLogon?: string;      // Hoppie ACARS logon code
+  hoppieCallsign?: string;   // default ACARS callsign
 };
 
 const KEY = "dispatch.settings.v1";
@@ -60,3 +62,7 @@ export function saveSettings(next: Partial<AppSettings>) {
 export const setVatsimCid = (cid?: string) => saveSettings({ vatsimCid: cid?.trim() || undefined });
 export const setSimbriefUsername = (u?: string) =>
   saveSettings({ simbriefUsername: u?.trim() || undefined });
+export const setHoppieLogon = (l?: string) =>
+  saveSettings({ hoppieLogon: l?.trim() || undefined });
+export const setHoppieCallsign = (c?: string) =>
+  saveSettings({ hoppieCallsign: c?.trim() || undefined });
