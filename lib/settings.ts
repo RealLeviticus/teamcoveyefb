@@ -4,6 +4,7 @@ export type AppSettings = {
   simbriefUsername?: string; // optional centralised username
   hoppieLogon?: string;      // Hoppie ACARS logon code
   hoppieCallsign?: string;   // default ACARS callsign
+  gsxRemoteUrl?: string;     // GSX Remote Control URL (e.g., http://127.0.0.1:8380)
 };
 
 const KEY = "dispatch.settings.v1";
@@ -66,3 +67,5 @@ export const setHoppieLogon = (l?: string) =>
   saveSettings({ hoppieLogon: l?.trim() || undefined });
 export const setHoppieCallsign = (c?: string) =>
   saveSettings({ hoppieCallsign: c?.trim() || undefined });
+export const setGsxRemoteUrl = (u?: string) =>
+  saveSettings({ gsxRemoteUrl: u?.trim() || undefined });

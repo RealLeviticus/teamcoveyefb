@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadSettings, saveSettings, setHoppieLogon } from "@/lib/settings";
+import { loadSettings, saveSettings, setHoppieLogon, setGsxRemoteUrl } from "@/lib/settings";
 
 export function SettingsPanel() {
   const [cid, setCid] = useState("");
   const [hoppieLogon, setLogon] = useState("");
+  const [gsxUrl, setGsxUrl] = useState("");
 
   useEffect(() => {
     const s = loadSettings();
     setCid(s.vatsimCid ?? "");
     setLogon(s.hoppieLogon ?? "");
+    setGsxUrl(s.gsxRemoteUrl ?? "");
   }, []);
 
   function onSave() {
@@ -20,6 +22,11 @@ export function SettingsPanel() {
 
   function onSaveHoppie() {
     setHoppieLogon(hoppieLogon);
+  }
+
+  function onSaveGsx() {
+    const cleaned = gsxUrl.trim();
+    setGsxRemoteUrl(cleaned || undefined);
   }
 
   return (
@@ -59,6 +66,25 @@ export function SettingsPanel() {
         className="rounded-lg px-3 py-2 bg-blue-600 hover:bg-blue-500"
       >
         Save Hoppie Logon
+      </button>
+
+      <hr className="border-neutral-200 dark:border-neutral-800 my-3" />
+      <label className="block text-sm opacity-80">GSX Remote URL</label>
+      <input
+        value={gsxUrl}
+        onChange={(e) => setGsxUrl(e.target.value)}
+        placeholder="http://127.0.0.1:8380"
+        autoCapitalize="off" autoCorrect="off" spellCheck={false}
+        className="w-full rounded-lg bg-neutral-900 px-3 py-2 outline-none ring-1 ring-neutral-700"
+      />
+      <div className="text-[11px] opacity-60 mt-1">
+        If this doesn’t open, verify GSX Remote is enabled and the port matches your setup.
+      </div>
+      <button
+        onClick={onSaveGsx}
+        className="rounded-lg px-3 py-2 bg-blue-600 hover:bg-blue-500"
+      >
+        Save GSX URL
       </button>
     </div>
   );

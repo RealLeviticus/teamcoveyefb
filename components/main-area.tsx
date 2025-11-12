@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "@/components/panel";
 import PdfViewer from "@/components/PdfViewer";
 import { FlightCard, type FlightSummary, type VatsimState } from "@/components/FlightCard";
+import GsxPanel from "@/components/GsxPanel";
 import { loadSettings, setSimbriefUsername, setVatsimCid, setHoppieLogon } from "@/lib/settings";
 
 const VIEWS = ["flight", "ofp", "map", "notams", "wx", "acars", "checklists_sops", "audio", "settings"] as const;
@@ -488,6 +489,9 @@ export function MainArea() {
   // PDF zoom
   const [zoom, setZoom] = useState<number>(1);
 
+  // GSX Remote URL (from settings; default handled on open)
+  const [gsxUrl, setGsxUrl] = useState<string>("");
+
   // Load settings + cached PDF on mount
   useEffect(() => {
     try {
@@ -495,10 +499,19 @@ export function MainArea() {
       if (s.simbriefUsername) { setUsername(s.simbriefUsername); setUsernameDraft(s.simbriefUsername); }
       if (s.vatsimCid) { setCid(s.vatsimCid); setCidDraft(s.vatsimCid); }
       if (s.hoppieLogon) { setHoppie(s.hoppieLogon); setHoppieDraft(s.hoppieLogon); }
+      if (s.gsxRemoteUrl) { setGsxUrl(s.gsxRemoteUrl); }
       const cached = localStorage.getItem(LS_PDF);
       if (cached) setPdfUrl(cached);
     } catch {}
   }, []);
+
+  function openGsxRemote() {
+    try {
+      const url = (gsxUrl || "http://127.0.0.1:8380").trim();
+      if (!url) return;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {}
+  }
 
   const qs = useMemo(() => (username ? `?username=${encodeURIComponent(username)}` : ""), [username]);
 
@@ -960,6 +973,10 @@ export function MainArea() {
                 vatsim={vatsim || undefined}
                 className="w-full"
               />
+              <div className="mt-3 p-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/40">
+                <div className="text-[10px] uppercase tracking-wide opacity-60 mb-2">GSX Control</div>
+                <GsxPanel />
+              </div>
             </div>
           )}
 
@@ -1370,6 +1387,8 @@ export function MainArea() {
 
           {/* Audio */}
           {view === "audio" && <div className="h-full flex items-center justify-center opacity-70"><p>Audio — ATIS/TTS, briefings, or recorded calls.</p></div>}
+
+          
 
           {/* Settings */}
           {view === "settings" && (
