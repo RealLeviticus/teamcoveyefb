@@ -1299,15 +1299,9 @@ export function MainArea() {
                 <div className="text-xs opacity-60">From: {acarsFrom || '—'} {vatsim?.online ? '(VATSIM)' : ''} · Logon: {acarsLogon || 'Not set (Settings)'}</div>
                 <div className="flex gap-2">
                   <button onClick={()=> setAcarsShowComposer((v)=>!v)} className="text-xs px-2 py-1 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">{acarsShowComposer ? 'Close' : '+ New Message'}</button>
-                  <button onClick={()=>void acarsLoadInbox()} className="text-xs px-2 py-1 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">Refresh Inbox</button>
                 </div>
               </div>
 
-              <div className="mb-3 flex items-center justify-end">
-                <div className="flex gap-2">
-                  <button onClick={()=> setAcarsShowComposer((v)=>!v)} className="text-xs px-2 py-1 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">{acarsShowComposer ? 'Close' : '+ New Message'}</button>
-                </div>
-              </div>
 
               {acarsShowComposer && (
                 <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 mb-4">
@@ -1346,11 +1340,10 @@ export function MainArea() {
               <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-sm font-semibold">Inbox</h3>
-                  <button onClick={()=>void acarsLoadInbox()} className="text-xs px-2 py-1 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">Refresh</button>
                 </div>
                 {acarsInbox.length === 0 && <div className="text-xs opacity-70">No messages.</div>}
                 <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                  {acarsInbox.map((m, i) => (
+                  {acarsInbox.slice().reverse().map((m, i) => (
                     <li key={i} className="py-2">
                       <div className="text-[11px] opacity-60 font-semibold">FROM: {m.from || '-'}</div>
                       <div className="text-sm whitespace-pre-wrap mt-1">{m.text}</div>
