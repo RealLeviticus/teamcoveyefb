@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "@/components/panel";
 import PdfViewer from "@/components/PdfViewer";
 import { FlightCard, type FlightSummary, type VatsimState } from "@/components/FlightCard";
-import { loadSettings, setSimbriefUsername, setVatsimCid, setHoppieLogon } from "@/lib/settings";
+import { loadSettings, setSimbriefUsername, setVatsimCid } from "@/lib/settings";
 
 const VIEWS = ["flight", "ofp", "map", "notams", "wx", "acars", "checklists_sops", "audio", "settings"] as const;
 type ViewKey = (typeof VIEWS)[number];
@@ -1156,30 +1156,20 @@ export function MainArea() {
           {/* ACARS */}
           {view === "acars" && (
             <div className="h-full overflow-auto max-w-3xl">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
-                  <h3 className="text-sm font-semibold mb-2">Logon & Defaults</h3>
-                  <label className="block text-xs opacity-70 mb-1">Hoppie Logon</label>
-                  <input value={acarsLogon} onChange={(e)=>setAcarsLogon(e.target.value)} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2" />
-                  <label className="block text-xs opacity-70 mb-1">Callsign (from) — auto from VATSIM</label>
-                  <input value={acarsFrom} readOnly className="w-full rounded-md border px-3 py-1.5 text-sm bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-700 mb-2 opacity-80" />
-                  <div className="flex gap-2">
-                    <button onClick={()=>{ setHoppieLogon(acarsLogon); }} className="text-xs px-3 py-1.5 rounded-md border bg-black text-white dark:bg-white dark:text-black border-neutral-200 dark:border-neutral-700">Save</button>
-                  </div>
-                </section>
-
-                <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
-                  <h3 className="text-sm font-semibold mb-2">Send Message</h3>
-                  <label className="block text-xs opacity-70 mb-1">To (station/callsign)</label>
-                  <input value={acarsTo} onChange={(e)=>setAcarsTo(e.target.value.toUpperCase())} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2" />
-                  <label className="block text-xs opacity-70 mb-1">Text</label>
-                  <textarea value={acarsText} onChange={(e)=>setAcarsText(e.target.value)} rows={6} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2"></textarea>
-                  <div className="flex items-center gap-2">
-                    <button onClick={()=>void acarsSend()} disabled={acarsSending} className="text-xs px-3 py-1.5 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">{acarsSending ? 'Sending…' : 'Send'}</button>
-                    {acarsError && <span className="text-xs text-red-600">{acarsError}</span>}
-                  </div>
-                </section>
-              </div>
+              <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
+                <h3 className="text-sm font-semibold mb-2">Send Message</h3>
+                <div className="text-xs opacity-60 mb-2">
+                  Using From: {acarsFrom || '—'} {vatsim?.online ? '(VATSIM)' : ''} · Logon: {acarsLogon || 'Not set (Settings)'}
+                </div>
+                <label className="block text-xs opacity-70 mb-1">To (station/callsign)</label>
+                <input value={acarsTo} onChange={(e)=>setAcarsTo(e.target.value.toUpperCase())} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2" />
+                <label className="block text-xs opacity-70 mb-1">Text</label>
+                <textarea value={acarsText} onChange={(e)=>setAcarsText(e.target.value)} rows={6} className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 mb-2"></textarea>
+                <div className="flex items-center gap-2">
+                  <button onClick={()=>void acarsSend()} disabled={acarsSending} className="text-xs px-3 py-1.5 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700">{acarsSending ? 'Sending…' : 'Send'}</button>
+                  {acarsError && <span className="text-xs text-red-600">{acarsError}</span>}
+                </div>
+              </section>
 
               <section className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3 mt-4">
                 <div className="mb-2 flex items-center justify-between">
