@@ -4,7 +4,8 @@ export type AppSettings = {
   simbriefUsername?: string; // optional centralised username
   hoppieLogon?: string;      // Hoppie ACARS logon code
   hoppieCallsign?: string;   // default ACARS callsign
-  gsxRemoteUrl?: string;     // GSX Remote Control URL (e.g., http://127.0.0.1:8380)
+  psxPort?: number;          // Aerowinx PSX server port (default 10747)
+  psxEnabled?: boolean;      // Show PSX controls and Doors view
 };
 
 const KEY = "dispatch.settings.v1";
@@ -67,5 +68,11 @@ export const setHoppieLogon = (l?: string) =>
   saveSettings({ hoppieLogon: l?.trim() || undefined });
 export const setHoppieCallsign = (c?: string) =>
   saveSettings({ hoppieCallsign: c?.trim() || undefined });
-export const setGsxRemoteUrl = (u?: string) =>
-  saveSettings({ gsxRemoteUrl: u?.trim() || undefined });
+export const setPsxHost = (h?: string) =>
+  saveSettings({ psxHost: h?.trim() || undefined });
+export const setPsxPort = (p?: number | string) => {
+  const n = typeof p === 'string' ? parseInt(p, 10) : p;
+  saveSettings({ psxPort: Number.isFinite(n as number) ? (n as number) : undefined });
+};
+
+export const setPsxEnabled = (v: boolean) => saveSettings({ psxEnabled: !!v });

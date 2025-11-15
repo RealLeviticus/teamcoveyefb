@@ -5,10 +5,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "@/components/panel";
 import PdfViewer from "@/components/PdfViewer";
 import { FlightCard, type FlightSummary, type VatsimState } from "@/components/FlightCard";
-import GsxPanel from "@/components/GsxPanel";
+import PsxDirectPanel from "@/components/PsxDirectPanel";
+import PowerAirPanel from "@/components/PowerAirPanel";
+import DoorsPanel from "@/components/DoorsPanel";
+import Doors747 from "@/components/Doors747";
 import { loadSettings, setSimbriefUsername, setVatsimCid, setHoppieLogon } from "@/lib/settings";
 
-const VIEWS = ["flight", "ofp", "map", "notams", "wx", "acars", "checklists_sops", "audio", "settings"] as const;
+const VIEWS = ["flight", "ofp", "map", "notams", "wx", "acars", "checklists_sops", "doors", "audio", "settings"] as const;
 type ViewKey = (typeof VIEWS)[number];
 
 const LS_PDF = "covey_last_simbrief_pdf";
@@ -320,6 +323,9 @@ export function MainArea() {
   const [loadingWx, setLoadingWx] = useState(false);
   const [wxError, setWxError] = useState<string | null>(null);
 
+  // Helper for SimBrief querystring
+  const qs = useMemo(() => (username ? `?username=${encodeURIComponent(username)}` : ""), [username]);
+
   // ACARS
   const [acarsLogon, setAcarsLogon] = useState("");
   const [acarsFrom, setAcarsFrom] = useState("");
@@ -489,8 +495,7 @@ export function MainArea() {
   // PDF zoom
   const [zoom, setZoom] = useState<number>(1);
 
-  // GSX Remote URL (from settings; default handled on open)
-  const [gsxUrl, setGsxUrl] = useState<string>("");
+  
 
   // Load settings + cached PDF on mount
   useEffect(() => {
@@ -499,21 +504,12 @@ export function MainArea() {
       if (s.simbriefUsername) { setUsername(s.simbriefUsername); setUsernameDraft(s.simbriefUsername); }
       if (s.vatsimCid) { setCid(s.vatsimCid); setCidDraft(s.vatsimCid); }
       if (s.hoppieLogon) { setHoppie(s.hoppieLogon); setHoppieDraft(s.hoppieLogon); }
-      if (s.gsxRemoteUrl) { setGsxUrl(s.gsxRemoteUrl); }
       const cached = localStorage.getItem(LS_PDF);
       if (cached) setPdfUrl(cached);
     } catch {}
   }, []);
 
-  function openGsxRemote() {
-    try {
-      const url = (gsxUrl || "http://127.0.0.1:8380").trim();
-      if (!url) return;
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch {}
-  }
-
-  const qs = useMemo(() => (username ? `?username=${encodeURIComponent(username)}` : ""), [username]);
+  
 
   /* ---------------------- OFP PDF ---------------------- */
   async function resolveLatestPdf(force = false, opts: { silent?: boolean } = {}) {
@@ -902,11 +898,10 @@ export function MainArea() {
     : v === "wx" ? "METAR/TAF"
     : v === "acars" ? "ACARS"
     : v === "checklists_sops" ? "Checklists & SOPs"
+    : v === "doors" ? "Doors"
     : v === "audio" ? "Audio"
     : v === "settings" ? "Settings"
     : "Flight";
-
-  const toggleStation = (sta: string) => {
     const s = new Set(openStations);
     if (s.has(sta)) s.delete(sta); else s.add(sta);
     setOpenStations(s);
@@ -974,8 +969,12 @@ export function MainArea() {
                 className="w-full"
               />
               <div className="mt-3 p-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/40">
-                <div className="text-[10px] uppercase tracking-wide opacity-60 mb-2">GSX Control</div>
-                <GsxPanel />
+                <div className="text-[10px] uppercase tracking-wide opacity-60 mb-2">PSX Control</div>
+                <div className="space-y-4">
+                  <PsxDirectPanel />
+                  <PowerAirPanel />
+                  <DoorsPanel />
+                </div>
               </div>
             </div>
           )}
@@ -1368,7 +1367,7 @@ export function MainArea() {
                   ))}
                 </ul>
               </section>
-              )}
+                           )}
             </div>
           )}
           {/* Checklists & SOPs */}
@@ -1386,15 +1385,16 @@ export function MainArea() {
           )}
 
           {/* Audio */}
-          {view === "audio" && <div className="h-full flex items-center justify-center opacity-70"><p>Audio â€” ATIS/TTS, briefings, or recorded calls.</p></div>}
-
-          
-
-          {/* Settings */}
-          {view === "settings" && (
-            <div className="space-y-4">
-              {/* SimBrief username */}
-              <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
+          {/* Doors */}
+          {view === "doors" && (
+            <div className="h-full overflow-auto">
+              <div className="mt-3 p-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/40">
+                <Doors747 />
+              </div>
+            </div>
+          )}
+          {/* Audio */}
+          {view === "audio" && <div className="h-full flex items-center justify-center opacity-70"><p>Audio — ATIS/TTS, briefings, or recorded calls.</p></div>}
                 <div className="mb-2">
                   <p className="text-xs opacity-60 mb-2">SimBrief Settings</p>
                   <div className="flex gap-2 items-center">
@@ -1462,6 +1462,8 @@ export function MainArea() {
                 <hr className="border-neutral-200 dark:border-neutral-800 my-3" />
                 <p className="text-xs opacity-70">Used for ACARS send/inbox. Case-sensitive; may include letters and digits. Stored locally on this device.</p>
               </div>
+
+              
             </div>
           )}
         </div>
@@ -1471,3 +1473,10 @@ export function MainArea() {
 }
 
 export default MainArea;
+
+
+
+
+
+
+

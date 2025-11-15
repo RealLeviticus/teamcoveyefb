@@ -1,9 +1,20 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { CornerToggle } from "@/components/corner-toggle";
 import { VatsimBadge } from "@/components/VatsimBadge";
+import { PsxBadge } from "@/components/PsxBadge";
+import { loadSettings } from "@/lib/settings";
 
 export function Header() {
+  const [psxEnabled, setPsxEnabledState] = useState(false);
+  useEffect(() => {
+    try {
+      const s = loadSettings();
+      setPsxEnabledState(!!s.psxEnabled);
+    } catch {}
+  }, []);
+
   return (
     <header
       className="
@@ -20,12 +31,11 @@ export function Header() {
       </h1>
 
       <div className="flex items-center gap-3">
-        {/* VATSIM Status Badge */}
         <VatsimBadge />
-
-        {/* Light/Dark toggle */}
+        {psxEnabled && <PsxBadge />}
         <CornerToggle />
       </div>
     </header>
   );
 }
+
