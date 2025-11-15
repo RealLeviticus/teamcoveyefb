@@ -27,17 +27,30 @@ const doorOrder = [
   "R5",          // 19 DR_ENTRY_5R
 ] as const;
 
-type DoorKey = typeof doorOrder[number];
+type DoorKey = (typeof doorOrder)[number];
 
 function mapToBits(map: Record<string, boolean> | undefined) {
   if (!map) return undefined as number | undefined;
   let v = 0;
   for (let i = 0; i < doorOrder.length; i++) {
     const key = doorOrder[i] as DoorKey;
-    if (map[key]) v |= (1 << i);
+    if (map[key]) v |= 1 << i;
   }
   return v >>> 0;
 }
+
+function bitsToMap(bits: number | undefined): Record<DoorKey, boolean> {
+  const out = {} as Record<DoorKey, boolean>;
+  for (let i = 0; i < doorOrder.length; i++) {
+    const key = doorOrder[i] as DoorKey;
+    out[key] = typeof bits === "number" ? !!(bits & (1 << i)) : false;
+  }
+  return out;
+}
+
+// Cached last-known bits we’ve sent to PSX (so status has something real to return)
+let lastOpenBits: number | undefined;
+let lastManualBits: number | undefined;
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,22 +58,27 @@ export async function POST(req: NextRequest) {
     const action = String(body.action || "set");
 
     if (action === "set") {
-      const open = body.open as Record<string, boolean> | undefined; // true = door open
+      const open = body.open as Record<string, boolean> | undefined;   // true = door open
       const manual = body.manual as Record<string, boolean> | undefined; // true = door manual (armed = false)
       const openBits = mapToBits(open);
       const manBits = mapToBits(manual);
 
       const results: any = { ok: true };
+
       if (typeof openBits === "number") {
         const r = await sendQ("Qi180", String(openBits));
         results.open = { ...r, bits: openBits };
+        if (r.ok) lastOpenBits = openBits;
         if (!r.ok) results.ok = false;
       }
+
       if (typeof manBits === "number") {
         const r = await sendQ("Qi181", String(manBits));
         results.manual = { ...r, bits: manBits };
+        if (r.ok) lastManualBits = manBits;
         if (!r.ok) results.ok = false;
       }
+
       return Response.json(results, { status: results.ok ? 200 : 502 });
     }
 
@@ -69,9 +87,21 @@ export async function POST(req: NextRequest) {
       return Response.json(r, { status: r.ok ? 200 : 502 });
     }
 
-    return Response.json({ ok: false, error: "invalid action; expected set|takeControl" }, { status: 400 });
+    if (action === "status") {
+      // Decode last-known bits into maps; if we’ve never set anything, this will be all false
+      const open = bitsToMap(lastOpenBits);
+      const manual = bitsToMap(lastManualBits);
+      return Response.json({ ok: true, open, manual }, { status: 200 });
+    }
+
+    return Response.json(
+      { ok: false, error: "invalid action; expected set|takeControl|status" },
+      { status: 400 },
+    );
   } catch (err: any) {
-    return Response.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
+    return Response.json(
+      { ok: false, error: err?.message || String(err) },
+      { status: 500 },
+    );
   }
 }
-

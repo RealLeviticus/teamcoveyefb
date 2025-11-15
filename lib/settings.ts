@@ -4,6 +4,7 @@ export type AppSettings = {
   simbriefUsername?: string; // optional centralised username
   hoppieLogon?: string;      // Hoppie ACARS logon code
   hoppieCallsign?: string;   // default ACARS callsign
+  psxHost?: string;
   psxPort?: number;          // Aerowinx PSX server port (default 10747)
   psxEnabled?: boolean;      // Show PSX controls and Doors view
 };
@@ -41,12 +42,15 @@ export function loadSettings(): AppSettings {
   return current;
 }
 
+export const SETTINGS_UPDATE_EVENT = "settings:updated";
+
 /** Overwrite central store with a merge, then persist. */
 export function saveSettings(next: Partial<AppSettings>) {
   if (typeof window === "undefined") return;
   const existing = loadSettings();
   const merged: AppSettings = { ...existing, ...next };
   localStorage.setItem(KEY, JSON.stringify(merged));
+  window.dispatchEvent(new Event(SETTINGS_UPDATE_EVENT));
   // Keep legacy keys in sync for any old code
   if ("vatsimCid" in next) {
     const v = next.vatsimCid?.trim();

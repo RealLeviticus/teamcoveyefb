@@ -19,8 +19,8 @@ export const viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
-      <body className={inter.className}>
+    <html lang="en" className="scroll-smooth dark" suppressHydrationWarning>
+      <body className={`${inter.className} antialiased bg-[var(--app-bg)] text-[var(--app-fg)] transition-colors`}>
         <ThemeProvider>
           {/* Fixed header (56px / 3.5rem) */}
           <Header />

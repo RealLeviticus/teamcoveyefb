@@ -31,7 +31,7 @@ export function PsxBadge() {
   return (
     <span className={`${base} ${variant}`} title={`PSX ${status}`}>
       <span className={dot} aria-hidden />
-      {status === "up" ? "PSX Online" : status === "checking" ? "Checking…" : "PSX Offline"}
+      {status === "up" ? "PSX Online" : status === "checking" ? "Checking..." : "PSX Offline"}
     </span>
   );
 }

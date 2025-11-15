@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { XMLParser } from "fast-xml-parser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,10 +23,23 @@ type Summary = {
 };
 
 function t(x?: unknown): string | null {
-  const s = typeof x === "string" ? x.trim() : "";
-  return s.length ? s : null;
+  if (x == null) return null;
+  if (typeof x === "string") {
+    const s = x.trim();
+    return s.length ? s : null;
+  }
+  if (typeof x === "number") {
+    if (!Number.isFinite(x)) return null;
+    const s = String(x);
+    return s.length ? s : null;
+  }
+  return null;
 }
 function n(x?: unknown): number | null {
+  if (x == null) return null;
+  if (typeof x === "number") {
+    return Number.isFinite(x) ? x : null;
+  }
   const s = t(x);
   if (!s) return null;
   const v = Number(s);
@@ -48,7 +60,7 @@ export async function GET(req: Request) {
     const res = await fetch(
       `https://www.simbrief.com/api/xml.fetcher.php?username=${encodeURIComponent(
         username
-      )}`,
+      )}&json=1`,
       { cache: "no-store", redirect: "follow" }
     );
     if (!res.ok) {
@@ -58,16 +70,8 @@ export async function GET(req: Request) {
       );
     }
 
-    const xml = await res.text();
-
-    const parser = new XMLParser({
-      ignoreAttributes: false,
-      allowBooleanAttributes: true,
-      parseTagValue: true,
-      trimValues: true,
-    });
-    const doc = parser.parse(xml) as any;
-    const root = doc?.OFP || doc;
+    const json = (await res.json()) as any;
+    const root = json?.OFP || json;
 
     const origin: Summary["origin"] = root?.origin
       ? {

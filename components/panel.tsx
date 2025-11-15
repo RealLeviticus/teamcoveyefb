@@ -15,8 +15,8 @@ export function Panel({ title, actions, children, className = "" }: PanelProps) 
   return (
     <section
       className={[
-        "rounded-xl border shadow-sm backdrop-blur",
-        "bg-white/80 text-black",
+        "rounded-xl border shadow-sm",
+        "bg-white text-black",
         "dark:bg-neutral-900/70 dark:text-white",
         "border-neutral-200 dark:border-neutral-800",
         "min-h-0", // allow children to shrink in flex layouts
@@ -27,7 +27,7 @@ export function Panel({ title, actions, children, className = "" }: PanelProps) 
         className={[
           "flex items-center justify-between rounded-t-xl",
           "px-3.5 py-2.5",
-          "bg-neutral-100/80 dark:bg-neutral-800/60",
+          "bg-white dark:bg-neutral-800/60",
           "border-b border-neutral-200 dark:border-neutral-800",
           "shrink-0",
         ].join(" ")}
@@ -36,7 +36,7 @@ export function Panel({ title, actions, children, className = "" }: PanelProps) 
         {actions}
       </header>
 
-      <div className="p-3 rounded-b-xl h-[calc(100%-2.75rem)] min-h-0">
+      <div className="p-3 rounded-b-xl h-[calc(100%-2.75rem)] min-h-0 overflow-y-auto overscroll-contain touch-pan-y">
         {/* h-[calc(100%-header)] keeps content filling the rest; min-h-0 allows overflow-hidden parents */}
         {children}
       </div>

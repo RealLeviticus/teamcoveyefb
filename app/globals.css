@@ -6,6 +6,17 @@
   :root {
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
+    --app-bg: #050505;
+    --app-fg: #f8fafc;
+    --panel-surface: rgba(9, 9, 11, 0.75);
+    --panel-border: rgba(248, 250, 252, 0.18);
+    --panel-header-bg: rgba(15, 15, 15, 0.75);
+  }
+
+  body {
+    background-color: var(--app-bg);
+    color: var(--app-fg);
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
 }
 
@@ -14,3 +25,10 @@
 
 /* iOS video controls */
 video::-webkit-media-controls { display: none !important; }
+
+.panel-surface { background-color: var(--panel-surface); }
+.panel-border { border-color: var(--panel-border) !important; }
+.panel-header { background-color: var(--panel-header-bg); border-color: var(--panel-border) !important; }
+.ios-scroll { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; }
+.responsive-embed iframe,
+iframe.responsive-embed { width: 100%; height: 100%; max-width: 100%; }

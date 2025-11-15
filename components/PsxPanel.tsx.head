@@ -1,4 +1,0 @@
-"use client";
-
-import React, { useEffect, useState } from "react";
-import { loadSettings, setPsxHost, setPsxPort } from "@/lib/settings";
