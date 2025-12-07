@@ -5,11 +5,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Panel } from "@/components/panel";
 import PdfViewer from "@/components/PdfViewer";
 import { FlightCard, type FlightSummary, type VatsimState } from "@/components/FlightCard";
-import { loadSettings, setSimbriefUsername, setVatsimCid, setHoppieLogon } from "@/lib/settings";
+import { loadSettings, SETTINGS_UPDATE_EVENT } from "@/lib/settings";
 
 // Adjust these import paths if your components live elsewhere
 import PsxDirectPanel from "@/components/PsxDirectPanel";
-import PowerAirPanel from "@/components/PowerAirPanel";
 import Doors747 from "@/components/Doors747";
 
 const VIEWS = [
@@ -20,9 +19,8 @@ const VIEWS = [
   "wx",
   "acars",
   "checklists_sops",
-  "doors",
+  "psx",
   "audio",
-  "settings",
 ] as const;
 
 type ViewKey = (typeof VIEWS)[number];
@@ -120,12 +118,26 @@ function MapPane({ visible }: { visible: boolean }) {
         visible ? "block" : "block opacity-0 pointer-events-none absolute inset-0",
       ].join(" ")}
     >
-      <iframe
-        src="https://map.vatsim.net/"
-        title="VATSIM Radar"
-        className="w-full h-full rounded-lg"
-        referrerPolicy="no-referrer"
-      />
+      <div className="relative h-full w-full">
+        <iframe
+          src="https://map.vatsim.net/"
+          title="VATSIM Radar"
+          className="w-full h-full rounded-lg"
+          referrerPolicy="strict-origin-when-cross-origin"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+          allow="geolocation; fullscreen; clipboard-read; clipboard-write; accelerometer; gyroscope"
+        />
+        <div className="pointer-events-none absolute inset-x-2 bottom-2 flex justify-end">
+          <a
+            href="https://map.vatsim.net/"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="pointer-events-auto text-xs px-2.5 py-1.5 rounded-md bg-black/70 text-white shadow-md backdrop-blur"
+          >
+            Open VATSIM Radar (new tab)
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
@@ -370,14 +382,12 @@ type Grouped = {
 export function MainArea() {
   const [view, setView] = useState<ViewKey>("flight");
   const [fading, setFading] = useState(false);
+  const [psxEnabled, setPsxEnabledState] = useState(false);
 
   // Settings
   const [username, setUsername] = useState("");
-  const [usernameDraft, setUsernameDraft] = useState("");
   const [cid, setCid] = useState("");
-  const [cidDraft, setCidDraft] = useState("");
   const [hoppie, setHoppie] = useState("");
-  const [hoppieDraft, setHoppieDraft] = useState("");
 
   // OFP PDF
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -444,6 +454,28 @@ export function MainArea() {
     const s = loadSettings();
     if (s.hoppieLogon) setAcarsLogon(s.hoppieLogon);
   }, []);
+
+  useEffect(() => {
+    const update = () => {
+      try {
+        const s = loadSettings();
+        setPsxEnabledState(!!s.psxEnabled);
+      } catch {}
+    };
+    update();
+    window.addEventListener(SETTINGS_UPDATE_EVENT, update);
+    window.addEventListener("storage", update);
+    return () => {
+      window.removeEventListener(SETTINGS_UPDATE_EVENT, update);
+      window.removeEventListener("storage", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!psxEnabled && view === "psx") {
+      setView("flight");
+    }
+  }, [psxEnabled, view]);
 
   // Prefer online VATSIM callsign; fall back to flight summary callsign
   useEffect(() => {
@@ -643,15 +675,12 @@ export function MainArea() {
       const s = loadSettings();
       if (s.simbriefUsername) {
         setUsername(s.simbriefUsername);
-        setUsernameDraft(s.simbriefUsername);
       }
       if (s.vatsimCid) {
         setCid(s.vatsimCid);
-        setCidDraft(s.vatsimCid);
       }
       if (s.hoppieLogon) {
         setHoppie(s.hoppieLogon);
-        setHoppieDraft(s.hoppieLogon);
       }
       const cached = localStorage.getItem(LS_PDF);
       if (cached) setPdfUrl(cached);
@@ -1134,59 +1163,6 @@ export function MainArea() {
     }, 120);
   };
 
-  const saveUsername = () => {
-    const trimmed = usernameDraft.trim();
-    setSimbriefUsername(trimmed || undefined);
-    setUsername(trimmed);
-    localStorage.removeItem(LS_PDF);
-    setPdfUrl(null);
-    void resolveFlightSummary(true);
-    void resolveLatestPdf(true, { silent: true });
-    if (view === "notams") void fetchNotams();
-  };
-  const clearUsername = () => {
-    setSimbriefUsername(undefined);
-    setUsername("");
-    setUsernameDraft("");
-    localStorage.removeItem(LS_PDF);
-    setPdfUrl(null);
-    setFlight(null);
-    setFlightError(null);
-    setVatsim(null);
-    gsHistoryRef.current = [];
-    altHistoryRef.current = [];
-    if (view === "notams") {
-      setNotams(null);
-      setNotamError("Please set your SimBrief username in Settings.");
-    }
-  };
-  const saveCid = () => {
-    const cleaned = cidDraft.trim();
-    setVatsimCid(cleaned || undefined);
-    setCid(cleaned);
-    if (view === "flight") void pollVatsimOnce();
-  };
-  const clearCid = () => {
-    setVatsimCid(undefined);
-    setCid("");
-    setCidDraft("");
-    if (view === "flight") void pollVatsimOnce();
-  };
-
-  // Hoppie ACARS logon
-  const saveHoppie = () => {
-    const code = hoppieDraft.trim();
-    setHoppieLogon(code || undefined);
-    setHoppie(code);
-    setAcarsLogon(code);
-  };
-  const clearHoppie = () => {
-    setHoppieLogon(undefined);
-    setHoppie("");
-    setHoppieDraft("");
-    setAcarsLogon("");
-  };
-
   const clamp = (n: number, min: number, max: number) =>
     Math.min(max, Math.max(min, n));
   const zoomOut = () =>
@@ -1218,16 +1194,16 @@ export function MainArea() {
         return "ACARS";
       case "checklists_sops":
         return "Checklists & SOPs";
-      case "doors":
-        return "Doors";
+      case "psx":
+        return "PSX";
       case "audio":
         return "Audio";
-      case "settings":
-        return "Settings";
       default:
         return "Flight";
     }
   };
+
+  const visibleViews = psxEnabled ? VIEWS : VIEWS.filter((v) => v !== "psx");
 
   const toggleStation = (sta: string) => {
     setOpenStations((prev) => {
@@ -1259,7 +1235,7 @@ export function MainArea() {
       title="Main Area"
       actions={
         <nav className="flex items-center gap-2">
-          {VIEWS.map((v) => {
+          {visibleViews.map((v) => {
             const active = view === v && !fading;
             return (
               <button
@@ -1311,15 +1287,6 @@ export function MainArea() {
                 vatsim={vatsim || undefined}
                 className="w-full"
               />
-              <div className="mt-3 p-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/40">
-                <div className="text-[10px] uppercase tracking-wide opacity-60 mb-2">
-                  PSX Control
-                </div>
-                <div className="space-y-4">
-                  <PsxDirectPanel />
-                  <PowerAirPanel />
-                </div>
-              </div>
             </div>
           )}
 
@@ -1997,12 +1964,18 @@ export function MainArea() {
             </div>
           )}
 
-          {/* Doors view */}
-          {view === "doors" && (
-            <div className="h-full overflow-auto">
-              <div className="mt-3 p-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/40">
-                <Doors747 />
+          {/* PSX view */}
+          {psxEnabled && view === "psx" && (
+            <div className="h-full overflow-auto space-y-3">
+              <div className="p-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/40">
+                <div className="text-[10px] uppercase tracking-wide opacity-60 mb-2">
+                  PSX Control
+                </div>
+                <div className="space-y-4 text-sm">
+                  <PsxDirectPanel />
+                </div>
               </div>
+              <Doors747 />
             </div>
           )}
 
@@ -2010,163 +1983,6 @@ export function MainArea() {
           {view === "audio" && (
             <div className="h-full flex items-center justify-center opacity-70">
               <p>Audio: ATIS/TTS, briefings, or recorded calls.</p>
-            </div>
-          )}
-
-          {/* Settings */}
-          {view === "settings" && (
-            <div className="h-full overflow-auto">
-              <div className="space-y-4 max-w-xl">
-                {/* SimBrief Settings */}
-                <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
-                  <div className="mb-2">
-                    <p className="text-xs opacity-60 mb-2">
-                      SimBrief Settings
-                    </p>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        value={usernameDraft}
-                        onChange={(e) =>
-                          setUsernameDraft(e.target.value)
-                        }
-                        placeholder="Enter SimBrief username"
-                        className="flex-1 rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
-                      />
-                      <button
-                        onClick={saveUsername}
-                        className="text-xs px-3 py-1.5 rounded-md border bg-black text-white dark:bg-white dark:text-black border-neutral-200 dark:border-neutral-700"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={clearUsername}
-                        className="text-xs px-3 py-1.5 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                    {username && (
-                      <p className="mt-1 text-xs opacity-60">
-                        Current:{" "}
-                        <span className="font-medium">{username}</span>
-                      </p>
-                    )}
-                  </div>
-                  <hr className="border-neutral-200 dark:border-neutral-800 my-3" />
-                  <p className="text-xs opacity-70">
-                    Username is stored locally. Flight summary, VATSIM
-                    status, and the OFP link are prefetched in the
-                    background.
-                  </p>
-                </div>
-
-                {/* VATSIM CID */}
-                <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
-                  <div className="mb-2">
-                    <p className="text-xs opacity-60 mb-2">
-                      VATSIM Settings
-                    </p>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        value={cidDraft}
-                        onChange={(e) => setCidDraft(e.target.value)}
-                        placeholder="Enter VATSIM CID (digits)"
-                        inputMode="numeric"
-                        className="flex-1 rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
-                      />
-                      <button
-                        onClick={saveCid}
-                        className="text-xs px-3 py-1.5 rounded-md border bg-black text-white dark:bg-white dark:text-black border-neutral-200 dark:border-neutral-700"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={clearCid}
-                        className="text-xs px-3 py-1.5 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                    {cid && (
-                      <p className="mt-1 text-xs opacity-60">
-                        Current CID:{" "}
-                        <span className="font-medium">{cid}</span>
-                      </p>
-                    )}
-                  </div>
-                  <hr className="border-neutral-200 dark:border-neutral-800 my-3" />
-                  <p className="text-xs opacity-70">
-                    When online, the Flight Card mirrors VATSIM Radar
-                    fields and overrides SimBrief where possible.
-                  </p>
-                </div>
-
-                {/* Hoppie ACARS */}
-                <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
-                  <div className="mb-2">
-                    <p className="text-xs opacity-60 mb-2">
-                      ACARS (Hoppie) Settings
-                    </p>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        value={hoppieDraft}
-                        onChange={(e) =>
-                          setHoppieDraft(e.target.value)
-                        }
-                        placeholder="Enter Hoppie logon code (case-sensitive)"
-                        autoCapitalize="off"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        className="flex-1 rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
-                      />
-                    </div>
-                    {hoppieDraft.trim() &&
-                      hoppieDraft.trim().length < 4 && (
-                        <p className="text-xs text-yellow-600 mt-1">
-                          That looks short, ensure you pasted the full
-                          logon code.
-                        </p>
-                      )}
-                    <p className="text-[11px] opacity-60 mt-1">
-                      Learn more in Hoppie&apos;s docs:{" "}
-                      <a
-                        href="https://www.hoppie.nl/acars/system/tech.html"
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="underline"
-                      >
-                        ACARS server API
-                      </a>
-                    </p>
-                    <div className="flex gap-2 items-center mt-2">
-                      <button
-                        onClick={saveHoppie}
-                        className="text-xs px-3 py-1.5 rounded-md border bg-black text-white dark:bg-white dark:text-black border-neutral-200 dark:border-neutral-700"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={clearHoppie}
-                        className="text-xs px-3 py-1.5 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                    {hoppie && (
-                      <p className="mt-1 text-xs opacity-60">
-                        Current logon:{" "}
-                        <span className="font-medium">{hoppie}</span>
-                      </p>
-                    )}
-                  </div>
-                  <hr className="border-neutral-200 dark:border-neutral-800 my-3" />
-                  <p className="text-xs opacity-70">
-                    Used for ACARS send/inbox. Case-sensitive, may
-                    include letters and digits. Stored locally on this
-                    device.
-                  </p>
-                </div>
-              </div>
             </div>
           )}
         </div>

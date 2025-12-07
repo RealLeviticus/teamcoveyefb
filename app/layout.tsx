@@ -22,10 +22,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="scroll-smooth dark" suppressHydrationWarning>
       <body className={`${inter.className} antialiased bg-[var(--app-bg)] text-[var(--app-fg)] transition-colors`}>
         <ThemeProvider>
-          {/* Fixed header (56px / 3.5rem) */}
+          {/* Fixed header with optional notice; leave generous top padding below it */}
           <Header />
-          {/* Main takes the remaining viewport height and prevents page scroll */}
-          <main className="pt-14 h-[calc(100vh-3.5rem)] overflow-hidden">
+          {/* Main leaves space for header + notice (~5rem) */}
+          <main className="pt-20 h-[calc(100vh-5rem)] overflow-hidden">
             {children}
           </main>
         </ThemeProvider>

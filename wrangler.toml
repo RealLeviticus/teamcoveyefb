@@ -1,0 +1,6 @@
+name = "teamcoveyefb"
+main = "src/index.js"   # adjust if your file is named differently
+compatibility_date = "2024-10-01"
+
+[vars]
+ALLOW_ORIGIN = "https://efb.actuallyleviticus.xyz"
