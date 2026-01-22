@@ -1,64 +1,145 @@
-# My Next Landing (Visual Studio friendly)
+# Team Covey EFB - Electronic Flight Bag
 
-A clean Next.js 14 + Tailwind landing page with a cinematic video hero and sticky nav.
-Open this folder directly in **Visual Studio** (or **VS Code**) and run:
+A professional Electron desktop application for flight simulation with PSX integration, SimBrief flight planning, VATSIM tracking, and ACARS messaging.
 
+---
+
+## 🚀 Quick Start
+
+### First Time Setup
+**PowerShell (Recommended):**
+```powershell
+powershell -ExecutionPolicy Bypass -File setup.ps1
+```
+
+**Or manually:**
 ```bash
 npm install
-npm run dev          # localhost only
-
-# LAN HTTP
-npm run dev:lan      # http://<your-ip>:3000
-
-# LAN HTTPS (needed for Twitch embeds on non-localhost)
-# Requires cert.pem and key.pem in project root (self-signed is fine)
-npm run dev:https    # https://<your-ip>.nip.io:3000
 ```
 
-### Twitch on iPad / LAN
-- Twitch blocks embeds on plain HTTP when not localhost. Use the HTTPS command above and browse via `https://<your-ip>.nip.io:3000` (accept self-signed once).
-- If the embed still refuses, use the “Open chat in new window” link shown in the chat panel.
+### Run the App
+```bash
+npm run electron:dev
+```
 
-Generate a quick self-signed cert (PowerShell example):
+### Build Windows Installer
+**PowerShell (Recommended):**
 ```powershell
-# install mkcert (recommended) or use openssl if you prefer
-# mkcert example after installation:
-mkcert -install
-mkcert -key-file key.pem -cert-file cert.pem "127.0.0.1" "localhost" "<your-ip>.nip.io"
+powershell -ExecutionPolicy Bypass -File build-installer.ps1
 ```
 
-## Replace media
-- Put your background video at: `public/hero.mp4` (we intentionally do not include one here)
-- Replace poster: `public/hero-poster.jpg`
-- Replace split image: `public/sample-split.jpg`
+**Or manually:**
+```bash
+npm run build
+npm run dist
+```
 
-## Notes
-- Works great on desktop and iPadOS.
-- The hero video is `muted`, `playsInline`, `autoPlay`, and `loop` for Safari compatibility.
-- The header respects iOS safe areas via CSS env variables.
+> 📖 **See [SETUP-GUIDE.md](SETUP-GUIDE.md) for detailed setup and build instructions.**
 
-## Hosting plan (GitHub Pages + local PSX bridge)
+---
 
-GitHub Pages cannot run Next.js API routes, so use this split:
+## 📱 Features
 
-1) **Static frontend on GitHub Pages** at `https://efb.actuallyleviticus.xyz`.
-	- Set DNS CNAME to the Pages hostname.
-	- Build a static bundle (or migrate to a static-friendly build) and deploy to `gh-pages`.
-	- Set environment: `NEXT_PUBLIC_TWITCH_PARENTS=efb.actuallyleviticus.xyz` and `NEXT_PUBLIC_API_BASE=https://<your-proxy-host>`.
+- ✈️ **SimBrief Integration** - Flight planning and OFP viewing
+- 🎮 **PSX Simulator Control** - Aircraft systems, doors, fuel, power
+- 🌍 **VATSIM Tracking** - Live pilot position and status
+- 📡 **ACARS Messaging** - Hoppie ACARS integration
+- 🗺️ **VATSIM Map** - Real-time traffic visualization
+- 💬 **Twitch Chat** - Embedded chat for streaming
+- 🌓 **Dark/Light Mode** - Theme support
+- 📱 **iPad Access** - Control from any device on local network
 
-2) **Cloud proxy for APIs** (e.g., Cloudflare Worker / Fly / Render microservice).
-	- Re-create needed routes from `/app/api/*` (SimBrief, VATSIM, Hoppie ACARS, etc.).
-	- Keep secrets on the proxy; enable CORS for `https://efb.actuallyleviticus.xyz`.
+---
 
-3) **Local PSX bridge** on the sim PC.
-	- Small HTTPS server exposing only PSX endpoints with CORS open to `https://efb.actuallyleviticus.xyz`.
-	- Use a self-signed cert installed on the tablet/desktop. Access via `https://psx.localhost:4443` or a LAN DNS name.
+## 🖥️ Usage
 
-4) **Mixed-content/HTTPS**
-	- Everything must be HTTPS (frontend, proxy, local bridge). For Twitch, ensure the parent host list includes your public domain.
+### Desktop Application
+1. Launch from Start Menu or Desktop
+2. Window opens with EFB interface
+3. System tray icon for background operation
+4. Configure settings via hamburger menu (☰)
 
-If you want code scaffolding for the proxy or the local bridge, ask and we’ll add minimal Node/Express examples you can deploy.
+### iPad/Network Access
+1. Find your PC's IP address (shown in system tray menu)
+2. On iPad Safari: `http://YOUR-PC-IP:3000`
+3. Full functionality over local network
 
-### New scaffolds
-- `proxy/express-proxy.js`: CORS-enabled HTTPS-friendly proxy for SimBrief/VATSIM, etc. (add ACARS as needed). Run with `node proxy/express-proxy.js` after `npm install express cors`.
-- `psx-bridge/server.js`: Local HTTPS bridge shell for PSX; CORS open to your public site. Run with `node psx-bridge/server.js` after `npm install express cors` (reuse your `cert.pem`/`key.pem`).
+---
+
+## 📦 Distribution
+
+### For End Users
+1. Download the installer (`.exe` file)
+2. Double-click to install
+3. Launch "Team Covey EFB" from Start Menu
+4. No Node.js or technical setup required
+
+### For Developers
+See [README-ELECTRON.md](README-ELECTRON.md) for full development documentation.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Electron** - Desktop application framework
+- **Next.js 14** - React framework with API routes
+- **React 18** - UI library
+- **Tailwind CSS** - Styling
+- **TypeScript** - Type safety
+- **Node.js** - Backend runtime
+
+---
+
+## 📚 Documentation
+
+- **[QUICK-START.md](QUICK-START.md)** - 5-minute getting started guide
+- **[README-ELECTRON.md](README-ELECTRON.md)** - Complete Electron documentation
+- **[README-DISTRIBUTION.md](README-DISTRIBUTION.md)** - Distribution guide
+- **[MIGRATION-SUMMARY.md](MIGRATION-SUMMARY.md)** - Architecture details
+
+---
+
+## 🎯 Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run electron:dev` | Run app in development |
+| `npm run electron:build` | Build installer for distribution |
+| `npm run build` | Build Next.js only |
+| `npm run dev` | Run Next.js server only |
+| `npm run lint` | Check code quality |
+
+---
+
+## 🐛 Troubleshooting
+
+### App Won't Start
+```bash
+npm install  # Reinstall dependencies
+```
+
+### iPad Can't Connect
+- Same WiFi network?
+- Check IP with `ipconfig`
+- Windows Firewall blocking Node.js?
+
+### Port 3000 Already in Use
+- Close other apps using port 3000
+- Or change port in `electron/main.js`
+
+---
+
+## 📄 License
+
+Private project for Team Covey.
+
+---
+
+## 👥 Support
+
+For issues or questions, check the documentation files or contact the development team.
+
+---
+
+**Version:** 1.0.0
+**Powered by:** Electron + Next.js

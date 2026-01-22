@@ -1,16 +1,21 @@
 {
-    "name": "my-next-landing",
+    "name": "team-covey-efb",
     "version": "1.0.0",
+    "description": "Electronic Flight Bag for Team Covey with PSX integration",
+    "author": "Team Covey",
     "private": true,
+    "main": "electron/main.js",
     "scripts": {
-        "build": "next build",
-        "start": "next start",
-        "lint": "next lint",
+        "dev": "next dev",
         "dev:lan": "next dev -H 0.0.0.0",
         "dev:https": "next dev -H 0.0.0.0 --experimental-https --experimental-https-cert ./cert.pem --experimental-https-key ./key.pem",
-        "start:lan": "next start -H 0.0.0.0",
-                    "dev":  "next dev",
-                    "export": "next export"
+        "build": "next build && npm run postbuild && electron-builder",
+        "postbuild": "node -e \"const fs = require('fs'); const path = require('path'); const src = '.next/static'; const dest = '.next/standalone/.next/static'; const pub = '.next/standalone/public'; fs.cpSync(src, dest, {recursive: true}); fs.cpSync('public', pub, {recursive: true});\"",
+        "start": "next start -H 0.0.0.0",
+        "lint": "next lint",
+        "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
+        "pack": "electron-builder --dir",
+        "dist": "electron-builder"
     },
     "dependencies": {
         "fast-xml-parser": "^5.3.1",
@@ -24,11 +29,53 @@
         "@types/node": "24.10.0",
         "@types/react": "19.2.2",
         "autoprefixer": "10.4.20",
+        "concurrently": "^8.2.2",
+        "electron": "^28.2.0",
+        "electron-builder": "^24.13.3",
         "eslint": "8.57.1",
         "eslint-config-next": "14.2.11",
         "postcss": "8.4.47",
         "tailwindcss": "3.4.13",
         "typescript": "5.6.3",
-        "wrangler": "^4.53.0"
+        "wait-on": "^7.2.0"
+    },
+    "build": {
+        "appId": "com.teamcovey.efb",
+        "productName": "Team Covey EFB",
+        "directories": {
+            "output": "dist-electron",
+            "buildResources": "public"
+        },
+        "files": [
+            "electron/**/*",
+            ".next/standalone/**/*",
+            ".next/standalone/node_modules/**/*",
+            ".next/standalone/public/**/*",
+            ".next/static/**/*",
+            "public/**/*",
+            "package.json"
+        ],
+        "asarUnpack": [
+            ".next/**/*"
+        ],
+        "extraResources": [
+            {
+                "from": ".next/standalone",
+                "to": "standalone",
+                "filter": ["**/*"]
+            }
+        ],
+        "win": {
+            "target": ["nsis"],
+            "icon": "public/icon.png"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "perMachine": false,
+            "allowElevation": true
+        }
     }
 }

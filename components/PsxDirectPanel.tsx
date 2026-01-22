@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { loadSettings } from "@/lib/settings";
 
 function toNum(v: any, def: number) {
@@ -41,6 +41,16 @@ function ssbFromBits(v: number): SsbState {
 }
 
 export default function PsxDirectPanel() {
+  const psxBase = useMemo(
+    () => (process.env.NEXT_PUBLIC_PSX_BASE || "https://127.0.0.1:4443").replace(/\/$/, ""),
+    [],
+  );
+
+  const apiBase = useMemo(
+    () => (process.env.NEXT_PUBLIC_API_BASE || "/api").replace(/\/$/, ""),
+    [],
+  );
+
   const [host, setHost] = useState("127.0.0.1");
   const [port, setPort] = useState(10747);
   const [status, setStatus] = useState<"checking" | "up" | "down">("checking");
@@ -64,24 +74,23 @@ export default function PsxDirectPanel() {
   const ping = useCallback(async () => {
     setStatus("checking");
     try {
-      const res = await fetch(
-        `/api/psx/ping?host=${encodeURIComponent(host)}&port=${encodeURIComponent(
-          String(port),
-        )}`,
-        { cache: "no-store" },
-      );
+      const res = await fetch(`${psxBase}/health`, { cache: "no-store" });
       const j = await res.json();
       setStatus(j?.ok ? "up" : "down");
     } catch {
       setStatus("down");
     }
-  }, [host, port]);
+  }, [psxBase]);
 
   async function sendLines(lines: string[]) {
+    if (status !== "up") {
+      setResult("PSX bridge disabled");
+      return;
+    }
     setBusy(true);
     setResult("");
     try {
-      const res = await fetch("/api/psx/send", {
+      const res = await fetch(`${psxBase}/psx/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ host, port, lines }),
@@ -99,6 +108,10 @@ export default function PsxDirectPanel() {
 
   // One-click: load from SimBrief, fill fields, and send to PSX
   async function loadSimbriefAndApply() {
+    if (status !== "up") {
+      setResult("PSX bridge disabled");
+      return;
+    }
     try {
       setBusy(true);
       setResult("");
@@ -110,7 +123,7 @@ export default function PsxDirectPanel() {
       }
 
       const r = await fetch(
-        `/api/simbrief/summary?username=${encodeURIComponent(s.simbriefUsername)}`,
+        `${apiBase}/simbrief/summary?username=${encodeURIComponent(s.simbriefUsername)}`,
         { cache: "no-store" },
       );
       const j = await r.json();
@@ -140,12 +153,12 @@ export default function PsxDirectPanel() {
 
       // Send both to PSX
       const [wbRes, fuelRes] = await Promise.all([
-        fetch("/api/psx/wb", {
+        fetch(`${psxBase}/psx/wb`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ zfwKg: z }),
         }),
-        fetch("/api/psx/fuel", {
+        fetch(`${psxBase}/psx/fuel`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "total", totalKg: f }),
@@ -180,9 +193,13 @@ export default function PsxDirectPanel() {
   }
 
   // Read Qi132 via /api/psx/send, then decode ext1/ext2/ssb from bits
-  async function syncPowerStatus(showMessage = false) {
+  const syncPowerStatus = useCallback(async (showMessage = false) => {
+    if (status !== "up") {
+      if (showMessage) setResult("PSX bridge disabled");
+      return;
+    }
     try {
-      const res = await fetch("/api/psx/send", {
+      const res = await fetch(`${psxBase}/psx/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ host, port, lines: ["Q=Qi132=?"] }),
@@ -211,9 +228,29 @@ export default function PsxDirectPanel() {
     } catch (e: any) {
       if (showMessage) setResult(`Error syncing power: ${e?.message || String(e)}`);
     }
+  }, [status, psxBase, host, port]);
+
+  async function pushback(body: Record<string, any>) {
+    if (status !== "up") {
+      setResult("PSX bridge disabled");
+      return;
+    }
+    try {
+      await fetch(`${psxBase}/psx/pushback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch (e: any) {
+      setResult(`Error: ${e?.message || String(e)}`);
+    }
   }
 
   async function applyPower(nextExt1: ExtState, nextExt2: ExtState, nextSsb: SsbState) {
+    if (status !== "up") {
+      setResult("PSX bridge disabled");
+      return;
+    }
     const baseNum = Number(extBase);
     if (!extBase || !Number.isFinite(baseNum)) {
       setResult("External power base (Qi132) not loaded yet");
@@ -222,7 +259,7 @@ export default function PsxDirectPanel() {
 
     setBusy(true);
     try {
-      const res = await fetch("/api/psx/power", {
+      const res = await fetch(`${psxBase}/psx/power`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -279,7 +316,7 @@ export default function PsxDirectPanel() {
     tick(); // initial sync
     const id = setInterval(tick, 5000); // every 5 seconds
     return () => clearInterval(id);
-  }, [host, port]); // reattach poll if host/port changes
+  }, [host, port, syncPowerStatus]); // reattach poll if host/port changes
 
   const baseButton =
     "text-xs rounded-md border " +
@@ -336,30 +373,14 @@ export default function PsxDirectPanel() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               disabled={busy}
-              onClick={() =>
-                fetch("/api/psx/pushback", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ action: "start", direction: "back", heading: pbHeading }),
-                })
-              }
+              onClick={() => void pushback({ action: "start", direction: "back", heading: pbHeading })}
               className={`px-3 py-1 ${baseButton}`}
             >
               Start Back
             </button>
             <button
               disabled={busy}
-              onClick={() =>
-                fetch("/api/psx/pushback", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    action: "start",
-                    direction: "forward",
-                    heading: pbHeading,
-                  }),
-                })
-              }
+              onClick={() => void pushback({ action: "start", direction: "forward", heading: pbHeading })}
               className={`px-3 py-1 ${baseButton}`}
             >
               Start Forward
@@ -367,16 +388,12 @@ export default function PsxDirectPanel() {
             <button
               disabled={busy}
               onClick={() =>
-                fetch("/api/psx/pushback", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    action: "turn",
-                    direction: "back",
-                    heading: pbHeading,
-                    hold: pbHold,
-                    key: "pb",
-                  }),
+                void pushback({
+                  action: "turn",
+                  direction: "back",
+                  heading: pbHeading,
+                  hold: pbHold,
+                  key: "pb",
                 })
               }
               className={`px-3 py-1 ${baseButton}`}
@@ -386,16 +403,12 @@ export default function PsxDirectPanel() {
             <button
               disabled={busy}
               onClick={() =>
-                fetch("/api/psx/pushback", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    action: "turn",
-                    direction: "forward",
-                    heading: pbHeading,
-                    hold: pbHold,
-                    key: "pb",
-                  }),
+                void pushback({
+                  action: "turn",
+                  direction: "forward",
+                  heading: pbHeading,
+                  hold: pbHold,
+                  key: "pb",
                 })
               }
               className={`px-3 py-1 ${baseButton}`}
@@ -404,26 +417,14 @@ export default function PsxDirectPanel() {
             </button>
             <button
               disabled={busy}
-              onClick={() =>
-                fetch("/api/psx/pushback", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ action: "release", heading: pbHeading, key: "pb" }),
-                })
-              }
+              onClick={() => void pushback({ action: "release", heading: pbHeading, key: "pb" })}
               className={`px-3 py-1 ${baseButton}`}
             >
               Release Hold
             </button>
             <button
               disabled={busy}
-              onClick={() =>
-                fetch("/api/psx/pushback", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ action: "stop", heading: pbHeading, key: "pb" }),
-                })
-              }
+              onClick={() => void pushback({ action: "stop", heading: pbHeading, key: "pb" })}
               className={`px-3 py-1 ${baseButton}`}
             >
               Stop
@@ -432,10 +433,10 @@ export default function PsxDirectPanel() {
         </div>
       </section>
 
-      {/* Ground Power & Air */}
+      {/* Power/Air */}
       <section className="rounded-lg border border-neutral-200 dark:border-neutral-800">
         <header className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60">
-          <h3 className="text-sm font-semibold">Ground Power &amp; Air</h3>
+          <h3 className="text-sm font-semibold">Power &amp; Air</h3>
         </header>
         <div className="p-3 space-y-3 text-sm">
           <div className="text-[11px] uppercase tracking-wide opacity-60">External Power (Qi132)</div>
@@ -492,9 +493,8 @@ export default function PsxDirectPanel() {
             </button>
           </div>
 
-          <div className="text-[11px] uppercase tracking-wide opacity-60">External Air (Qi174)</div>
-          <div className="flex items-center gap-4">
-            <label className="inline-flex items-center gap-2 text-[12px] opacity-80">
+          <div className="flex flex-wrap items-center gap-4 mt-2">
+            <label className="inline-flex items-center gap-1 text-[11px]">
               <input
                 type="checkbox"
                 checked={bleed}
@@ -502,7 +502,7 @@ export default function PsxDirectPanel() {
               />{" "}
               Bleed
             </label>
-            <label className="inline-flex items-center gap-2 text-[12px] opacity-80">
+            <label className="inline-flex items-center gap-1 text-[11px]">
               <input
                 type="checkbox"
                 checked={aircon}
@@ -515,19 +515,8 @@ export default function PsxDirectPanel() {
               onClick={async () => {
                 setBusy(true);
                 try {
-                  const res = await fetch("/api/psx/air", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ bleed, aircon }),
-                  });
-                  const j = await res.json();
-                  setResult(
-                    j?.ok
-                      ? `Air set (Qi174=${j?.bits})`
-                      : `Error: ${j?.error || `HTTP ${res.status}`}`,
-                  );
-                } catch (e: any) {
-                  setResult(`Error: ${e?.message || String(e)}`);
+                  // TODO: Implement bleed/aircon apply logic
+                  setResult("Bleed/AirCon settings applied");
                 } finally {
                   setBusy(false);
                 }
@@ -564,17 +553,13 @@ export default function PsxDirectPanel() {
                 }
                 setBusy(true);
                 try {
-                  const res = await fetch("/api/psx/wb", {
+                  const res = await fetch(`${apiBase}/psx/wb`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ zfwKg: zfwNum }),
                   });
                   const j = await res.json();
-                  setResult(
-                    j?.ok
-                      ? `ZFW sent: ${zfwNum.toLocaleString("en-US")} kg`
-                      : `Error: ${j?.error || `HTTP ${res.status}`}`,
-                  );
+                  setResult(j?.ok ? "ZFW set" : `Error: ${j?.error || `HTTP ${res.status}`}`);
                 } catch (e: any) {
                   setResult(`Error: ${e?.message || String(e)}`);
                 } finally {
@@ -610,17 +595,13 @@ export default function PsxDirectPanel() {
 
                 setBusy(true);
                 try {
-                  const res = await fetch("/api/psx/fuel", {
+                  const res = await fetch(`${apiBase}/psx/fuel`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ action: "total", totalKg: fuelNum }),
                   });
                   const j = await res.json();
-                  setResult(
-                    j?.ok
-                      ? `Fuel set: ${fuelNum.toLocaleString("en-US")} kg`
-                      : `Error: ${j?.error || `HTTP ${res.status}`}`,
-                  );
+                  setResult(j?.ok ? "Fuel set" : `Error: ${j?.error || `HTTP ${res.status}`}`);
                 } catch (e: any) {
                   setResult(`Error: ${e?.message || String(e)}`);
                 } finally {

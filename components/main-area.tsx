@@ -545,7 +545,7 @@ export function MainArea() {
     setAcarsText(parts.join(" "));
   }
 
-  async function acarsLoadInbox() {
+  const acarsLoadInbox = useCallback(async () => {
     try {
       setAcarsError(null);
       const qs = new URLSearchParams({
@@ -627,7 +627,7 @@ export function MainArea() {
     } catch (e: any) {
       setAcarsError(e?.message || "Failed to load inbox");
     }
-  }
+  }, [acarsLogon, acarsFrom, acarsInboxKey, view]);
 
   // Background poll for inbox (every 20s) when logon + callsign present
   useEffect(() => {
@@ -654,7 +654,7 @@ export function MainArea() {
     return () => {
       if (timer) window.clearInterval(timer);
     };
-  }, [acarsLogon, acarsFrom, acarsInboxKey]);
+  }, [acarsLogon, acarsFrom, acarsInboxKey, acarsLoadInbox]);
 
   // Clear unread when opening ACARS tab
   useEffect(() => {

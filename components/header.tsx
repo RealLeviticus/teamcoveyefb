@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { VatsimBadge } from "@/components/VatsimBadge";
 import { PsxBadge } from "@/components/PsxBadge";
 import { loadSettings, SETTINGS_UPDATE_EVENT } from "@/lib/settings";
 
 export function Header() {
-  const router = useRouter();
   const pathname = usePathname();
   const [psxEnabled, setPsxEnabledState] = useState(false);
   const [httpsNotice, setHttpsNotice] = useState<string | null>(null);
@@ -37,9 +37,6 @@ export function Header() {
     };
   }, []);
 
-  const toggleSettings = () => {
-    router.push(settingsOpen ? "/" : "/settings");
-  };
 
   return (
     <header
@@ -60,12 +57,12 @@ export function Header() {
         <div className="flex items-center gap-3">
           <VatsimBadge />
           {psxEnabled && <PsxBadge />}
-          <button
-            onClick={toggleSettings}
+          <Link
+            href={settingsOpen ? "/" : "/settings"}
             aria-label={settingsOpen ? "Close settings" : "Open settings"}
-            className="inline-flex h-10 w-10 items-center justify-center gap-1 rounded-md border border-neutral-300/70 dark:border-neutral-700/70 bg-white/80 dark:bg-neutral-900/80 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            className="inline-flex h-10 w-10 items-center justify-center gap-1 rounded-md border border-neutral-300/70 dark:border-neutral-700/70 bg-white/80 dark:bg-neutral-900/80 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
           >
-            <span className="inline-flex flex-col items-center justify-center gap-1" aria-hidden>
+            <span className="inline-flex flex-col items-center justify-center gap-1 pointer-events-none" aria-hidden>
               {settingsOpen ? (
                 <>
                   <span className="block h-0.5 w-5 rotate-45 origin-center bg-neutral-900 dark:bg-neutral-100" />
@@ -79,7 +76,7 @@ export function Header() {
                 </>
               )}
             </span>
-          </button>
+          </Link>
         </div>
       </div>
 

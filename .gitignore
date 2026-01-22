@@ -9,10 +9,13 @@ package-lock.json
 .next/
 .next-static/
 out/
-dist/
 build/
 .next.cache/
 .vercel/
+
+# Electron
+dist-electron/
+release/
 
 # TypeScript
 *.tsbuildinfo
