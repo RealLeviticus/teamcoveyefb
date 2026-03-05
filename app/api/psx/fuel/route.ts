@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { sendQ, kgToLbs } from "@/lib/psxClient";
+import { psxIntRangeError, psxStringLenRangeError } from "@/lib/psxVariables";
 
 export const runtime = "nodejs";
 
@@ -14,15 +15,22 @@ export async function POST(req: NextRequest) {
     const action = String(body.action || "").toLowerCase();
 
     if (action === "prefuel") {
-      const entry = String(body.entry || "");
-      if (!entry) return Response.json({ ok: false, error: "entry required" }, { status: 400 });
-      const res = await sendQ("Qi220", entry);
+      const entry = Number(body.entry);
+      if (!Number.isFinite(entry)) {
+        return Response.json({ ok: false, error: "entry required (0 or 1)" }, { status: 400 });
+      }
+      const value = Math.round(entry);
+      const rangeErr = psxIntRangeError("Qi220", value);
+      if (rangeErr) return Response.json({ ok: false, error: rangeErr }, { status: 400 });
+      const res = await sendQ("Qi220", String(value));
       return Response.json(res, { status: res.ok ? 200 : 502 });
     }
 
     if (action === "tanks") {
       const payload = String(body.payload || "");
       if (!payload) return Response.json({ ok: false, error: "payload required" }, { status: 400 });
+      const lenErr = psxStringLenRangeError("Qs438", payload);
+      if (lenErr) return Response.json({ ok: false, error: lenErr }, { status: 400 });
       const res = await sendQ("Qs438", payload);
       return Response.json(res, { status: res.ok ? 200 : 502 });
     }
@@ -30,6 +38,8 @@ export async function POST(req: NextRequest) {
     if (action === "preselect") {
       const payload = String(body.payload || "");
       if (!payload) return Response.json({ ok: false, error: "payload required" }, { status: 400 });
+      const lenErr = psxStringLenRangeError("Qs439", payload);
+      if (lenErr) return Response.json({ ok: false, error: lenErr }, { status: 400 });
       const res = await sendQ("Qs439", payload);
       return Response.json(res, { status: res.ok ? 200 : 502 });
     }
@@ -47,6 +57,10 @@ export async function POST(req: NextRequest) {
       const preselect = toTenthString(totalLbs);
       const payload438 = `d${m};${m};${m};${m};${zero};${zero};${zero};${zero};0;${preselect};2802;`;
       const payload439 = `${m};${m};${m};${m};${zero};${zero};${zero};${zero};0;`;
+      const lenErr438 = psxStringLenRangeError("Qs438", payload438);
+      if (lenErr438) return Response.json({ ok: false, error: lenErr438 }, { status: 400 });
+      const lenErr439 = psxStringLenRangeError("Qs439", payload439);
+      if (lenErr439) return Response.json({ ok: false, error: lenErr439 }, { status: 400 });
       const r1 = await sendQ("Qs438", payload438);
       if (!r1.ok) return Response.json(r1, { status: 502 });
       const r2 = await sendQ("Qs439", payload439);

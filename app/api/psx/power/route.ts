@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { sendQ } from "@/lib/psxClient";
+import { psxIntRangeError } from "@/lib/psxVariables";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,8 @@ export async function POST(req: NextRequest) {
     if (!Number.isFinite(base)) {
       return Response.json({ ok: false, error: "Provide numeric 'base' (Qi132 current value)" }, { status: 400 });
     }
+    const baseErr = psxIntRangeError("Qi132", base);
+    if (baseErr) return Response.json({ ok: false, error: baseErr }, { status: 400 });
     const ext1 = body.ext1 as ExtState | undefined;
     const ext2 = body.ext2 as ExtState | undefined;
     const ssb = body.ssb as SsbState | undefined;
@@ -53,6 +56,8 @@ export async function POST(req: NextRequest) {
     next = applyExtState(next, 1, ext1);
     next = applyExtState(next, 2, ext2);
     next = applySsb(next, ssb);
+    const nextErr = psxIntRangeError("Qi132", next);
+    if (nextErr) return Response.json({ ok: false, error: nextErr }, { status: 400 });
 
     const res = await sendQ("Qi132", String(next));
     return Response.json({ ...res, base, next }, { status: res.ok ? 200 : 502 });
@@ -60,4 +65,3 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
   }
 }
-

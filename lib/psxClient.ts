@@ -1,4 +1,5 @@
 import net from "net";
+import { psxIntRangeError } from "@/lib/psxVariables";
 
 export type PsxClientOptions = {
   host?: string;
@@ -31,11 +32,27 @@ export async function sendQ(code: string, value: string, opts?: PsxClientOptions
 
   try {
     await new Promise<void>((resolve, reject) => {
-      socket.once("error", reject);
-      socket.connect(port, host, () => {
-        socket.removeListener("error", reject);
+      const onError = (err: Error) => {
+        cleanup();
+        reject(err);
+      };
+      const onTimeout = () => {
+        cleanup();
+        reject(new Error(`Timeout connecting to ${host}:${port}`));
+      };
+      const onConnect = () => {
+        cleanup();
         resolve();
-      });
+      };
+      const cleanup = () => {
+        socket.removeListener("error", onError);
+        socket.removeListener("timeout", onTimeout);
+        socket.removeListener("connect", onConnect);
+      };
+      socket.once("error", onError);
+      socket.once("timeout", onTimeout);
+      socket.once("connect", onConnect);
+      socket.connect(port, host);
     });
 
     // Basic format used by PSX for write/demand lines.
@@ -62,11 +79,15 @@ export type PushDirection = "back" | "forward";
 export async function startPushback(direction: PushDirection, headingDeg: number, opts?: PsxClientOptions) {
   const dirDigit = direction === "forward" ? "2" : "1";
   const code = `${dirDigit}98${padHeading(headingDeg)}`; // e.g. 198123 (backwards) or 298123 (forwards)
+  const rangeErr = psxIntRangeError("Qi191", Number(code));
+  if (rangeErr) return { ok: false, error: rangeErr } as const;
   return sendQ("Qi191", code, opts);
 }
 
 export async function stopPushback(currentHeadingDeg: number, opts?: PsxClientOptions) {
   const code = `120${padHeading(currentHeadingDeg)}`; // Stop
+  const rangeErr = psxIntRangeError("Qi191", Number(code));
+  if (rangeErr) return { ok: false, error: rangeErr } as const;
   return sendQ("Qi191", code, opts);
 }
 
@@ -75,12 +96,16 @@ export type Turn = "left" | "right" | "straight";
 export async function updatePushbackTurn(direction: PushDirection, targetHeadingDeg: number, opts?: PsxClientOptions) {
   const dirDigit = direction === "forward" ? "2" : "1";
   const code = `${dirDigit}97${padHeading(targetHeadingDeg)}`; // maintain/adjust heading while pushing
+  const rangeErr = psxIntRangeError("Qi191", Number(code));
+  if (rangeErr) return { ok: false, error: rangeErr } as const;
   return sendQ("Qi191", code, opts);
 }
 
 /** Set Zero Fuel Weight. The PSX input (Qi123) expects pounds. */
 export async function setZfwLbs(zfwLbs: number, opts?: PsxClientOptions) {
   const v = Math.round(zfwLbs);
+  const rangeErr = psxIntRangeError("Qi123", v);
+  if (rangeErr) return { ok: false, error: rangeErr } as const;
   return sendQ("Qi123", String(v), opts);
 }
 
@@ -88,4 +113,3 @@ export async function setZfwLbs(zfwLbs: number, opts?: PsxClientOptions) {
 export function kgToLbs(kg: number): number {
   return Math.round(kg * 2.2046226);
 }
-

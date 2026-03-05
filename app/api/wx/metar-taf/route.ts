@@ -81,8 +81,14 @@ export async function GET(req: NextRequest) {
         if (!txt) return { time: null as string | null, body: undefined as string | undefined };
         const lines = txt.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
         if (!lines.length) return { time: null, body: undefined };
+
         const time = lines.length > 1 ? lines[0] : null;
-        const body = lines.length > 1 ? lines[1] : lines[0];
+        const payload = lines.length > 1 ? lines.slice(1) : [...lines];
+
+        // NOAA TAF files often include a standalone "TAF" marker line before the actual forecast.
+        while (payload.length && /^(METAR|SPECI|TAF)$/i.test(payload[0])) payload.shift();
+
+        const body = payload.join("\n").trim() || undefined;
         return { time, body };
       };
 
@@ -99,4 +105,3 @@ export async function GET(req: NextRequest) {
     );
   }
 }
-

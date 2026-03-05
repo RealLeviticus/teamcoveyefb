@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { sendQ } from "@/lib/psxClient";
+import { psxIntRangeError } from "@/lib/psxVariables";
 
 export const runtime = "nodejs";
 
@@ -18,10 +19,11 @@ export async function POST(req: NextRequest) {
     let v = 0;
     v = bleed ? setBit(v, BLEED) : clearBit(v, BLEED);
     v = aircon ? setBit(v, AIRCON) : clearBit(v, AIRCON);
+    const rangeErr = psxIntRangeError("Qi174", v);
+    if (rangeErr) return Response.json({ ok: false, error: rangeErr }, { status: 400 });
     const res = await sendQ("Qi174", String(v));
     return Response.json({ ...res, bits: v }, { status: res.ok ? 200 : 502 });
   } catch (err: any) {
     return Response.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
   }
 }
-

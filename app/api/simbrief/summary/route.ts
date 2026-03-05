@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchSimbriefJson, SimbriefError } from "@/lib/simbrief";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,20 +58,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const res = await fetch(
-      `https://www.simbrief.com/api/xml.fetcher.php?username=${encodeURIComponent(
-        username
-      )}&json=1`,
-      { cache: "no-store", redirect: "follow" }
-    );
-    if (!res.ok) {
-      return NextResponse.json(
-        { ok: false, error: `SimBrief fetch failed (HTTP ${res.status})` },
-        { status: 502 }
-      );
-    }
-
-    const json = (await res.json()) as any;
+    const json = (await fetchSimbriefJson(username)) as any;
     const root = json?.OFP || json;
 
     const origin: Summary["origin"] = root?.origin
@@ -184,6 +172,12 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ...data, ...compat });
   } catch (err: any) {
+    if (err instanceof SimbriefError) {
+      return NextResponse.json(
+        { ok: false, error: err.message },
+        { status: err.status }
+      );
+    }
     return NextResponse.json(
       { ok: false, error: err?.message || String(err) },
       { status: 500 }

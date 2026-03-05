@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { sendQ } from "@/lib/psxClient";
+import { psxIntRangeError } from "@/lib/psxVariables";
 
 export const runtime = "nodejs";
 
@@ -66,6 +67,8 @@ export async function POST(req: NextRequest) {
       const results: any = { ok: true };
 
       if (typeof openBits === "number") {
+        const rangeErr = psxIntRangeError("Qi180", openBits);
+        if (rangeErr) return Response.json({ ok: false, error: rangeErr }, { status: 400 });
         const r = await sendQ("Qi180", String(openBits));
         results.open = { ...r, bits: openBits };
         if (r.ok) lastOpenBits = openBits;
@@ -73,6 +76,8 @@ export async function POST(req: NextRequest) {
       }
 
       if (typeof manBits === "number") {
+        const rangeErr = psxIntRangeError("Qi181", manBits);
+        if (rangeErr) return Response.json({ ok: false, error: rangeErr }, { status: 400 });
         const r = await sendQ("Qi181", String(manBits));
         results.manual = { ...r, bits: manBits };
         if (r.ok) lastManualBits = manBits;
@@ -83,6 +88,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "takeControl") {
+      const rangeErr = psxIntRangeError("Qi179", 32);
+      if (rangeErr) return Response.json({ ok: false, error: rangeErr }, { status: 400 });
       const r = await sendQ("Qi179", "32");
       return Response.json(r, { status: r.ok ? 200 : 502 });
     }

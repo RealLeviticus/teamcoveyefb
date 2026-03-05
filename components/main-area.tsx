@@ -14,7 +14,6 @@ import Doors747 from "@/components/Doors747";
 const VIEWS = [
   "flight",
   "ofp",
-  "map",
   "notams",
   "wx",
   "acars",
@@ -107,39 +106,6 @@ function classifyNotam(text: string): string {
   )
     return "Aerodrome";
   return "Other";
-}
-
-/** Keep the VATSIM web map mounted so it never reloads when switching tabs. */
-function MapPane({ visible }: { visible: boolean }) {
-  return (
-    <div
-      className={[
-        "h-full w-full rounded-lg border border-neutral-200 dark:border-neutral-800",
-        visible ? "block" : "block opacity-0 pointer-events-none absolute inset-0",
-      ].join(" ")}
-    >
-      <div className="relative h-full w-full">
-        <iframe
-          src="https://map.vatsim.net/"
-          title="VATSIM Radar"
-          className="w-full h-full rounded-lg"
-          referrerPolicy="strict-origin-when-cross-origin"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
-          allow="geolocation; fullscreen; clipboard-read; clipboard-write; accelerometer; gyroscope"
-        />
-        <div className="pointer-events-none absolute inset-x-2 bottom-2 flex justify-end">
-          <a
-            href="https://map.vatsim.net/"
-            target="_blank"
-            rel="noreferrer noopener"
-            className="pointer-events-auto text-xs px-2.5 py-1.5 rounded-md bg-black/70 text-white shadow-md backdrop-blur"
-          >
-            Open VATSIM Radar (new tab)
-          </a>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 /** Client fallback: parse NOTAMs from OFP XML if server returned nothing. */
@@ -1184,8 +1150,6 @@ export function MainArea() {
     switch (v) {
       case "ofp":
         return "OFP";
-      case "map":
-        return "Map";
       case "notams":
         return "NOTAM";
       case "wx":
@@ -1366,11 +1330,6 @@ export function MainArea() {
               </div>
             </div>
           )}
-
-          {/* Map */}
-          <div className={view === "map" ? "h-full relative" : "h-0"}>
-            <MapPane visible={view === "map"} />
-          </div>
 
           {/* NOTAMs */}
           {view === "notams" && (

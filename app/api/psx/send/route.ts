@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Body = { host?: string; port?: number; lines?: string[] };
+type Body = { host?: string; port?: number; lines?: string[]; waitMs?: number };
 
 export async function POST(req: Request): Promise<Response> {
   let j: Body = {};
@@ -11,7 +11,13 @@ export async function POST(req: Request): Promise<Response> {
   const host = (j.host || "127.0.0.1").trim();
   const port = Number.isFinite(j.port as number) ? (j.port as number) : 10747;
   const lines = Array.isArray(j.lines) ? j.lines : [];
-  if (!host || !Number.isFinite(port)) return NextResponse.json({ ok: false, error: "Invalid host/port" }, { status: 400 });
+  const waitMsRaw = Number(j.waitMs);
+  const waitMs = Number.isFinite(waitMsRaw)
+    ? Math.max(50, Math.min(2000, Math.round(waitMsRaw)))
+    : 150;
+  if (!host || !Number.isFinite(port) || port < 1 || port > 65535) {
+    return NextResponse.json({ ok: false, error: "Invalid host/port" }, { status: 400 });
+  }
   if (lines.length === 0) return NextResponse.json({ ok: false, error: "No lines" }, { status: 400 });
 
   const net = await import("node:net");
@@ -42,7 +48,7 @@ export async function POST(req: Request): Promise<Response> {
           socket.write(term, "utf8");
         }
         // Give PSX a brief moment to respond, then close
-        setTimeout(() => finish(true), 150);
+        setTimeout(() => finish(true), waitMs);
       } catch (e: any) {
         finish(false, e?.message || "Send failed");
       }

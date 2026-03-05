@@ -30,8 +30,13 @@ async function getSummary(originUrl: string, username?: string | null) {
     cache: "no-store",
     headers: { "User-Agent": "CoveyEFB/1.0" },
   });
-  if (!res.ok) throw new Error(`summary ${res.status}`);
-  return res.json();
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    const err: any = new Error(body?.error || `summary ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return body;
 }
 
 async function validateUrl(url: string) {
@@ -136,6 +141,12 @@ export async function GET(req: NextRequest) {
     // If no plan_id, we cannot guess the numeric suffix reliably. Tell the caller to refresh summary.
     return bad("Missing plan_id; refresh SimBrief summary first", 409);
   } catch (e: any) {
-    return bad(`Failed to resolve latest PDF: ${e?.message || e}`, 502);
+    const status = Number(e?.status);
+    const code = Number.isFinite(status)
+      ? status >= 500
+        ? 502
+        : status
+      : 502;
+    return bad(`Failed to resolve latest PDF: ${e?.message || e}`, code);
   }
 }

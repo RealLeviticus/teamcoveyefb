@@ -41,11 +41,6 @@ function ssbFromBits(v: number): SsbState {
 }
 
 export default function PsxDirectPanel() {
-  const psxBase = useMemo(
-    () => (process.env.NEXT_PUBLIC_PSX_BASE || "https://127.0.0.1:4443").replace(/\/$/, ""),
-    [],
-  );
-
   const apiBase = useMemo(
     () => (process.env.NEXT_PUBLIC_API_BASE || "/api").replace(/\/$/, ""),
     [],
@@ -74,23 +69,26 @@ export default function PsxDirectPanel() {
   const ping = useCallback(async () => {
     setStatus("checking");
     try {
-      const res = await fetch(`${psxBase}/health`, { cache: "no-store" });
+      const res = await fetch(
+        `${apiBase}/psx/ping?host=${encodeURIComponent(host)}&port=${encodeURIComponent(String(port))}`,
+        { cache: "no-store" },
+      );
       const j = await res.json();
-      setStatus(j?.ok ? "up" : "down");
+      setStatus(res.ok && j?.ok ? "up" : "down");
     } catch {
       setStatus("down");
     }
-  }, [psxBase]);
+  }, [apiBase, host, port]);
 
   async function sendLines(lines: string[]) {
     if (status !== "up") {
-      setResult("PSX bridge disabled");
+      setResult("PSX unavailable");
       return;
     }
     setBusy(true);
     setResult("");
     try {
-      const res = await fetch(`${psxBase}/psx/send`, {
+      const res = await fetch(`${apiBase}/psx/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ host, port, lines }),
@@ -109,7 +107,7 @@ export default function PsxDirectPanel() {
   // One-click: load from SimBrief, fill fields, and send to PSX
   async function loadSimbriefAndApply() {
     if (status !== "up") {
-      setResult("PSX bridge disabled");
+      setResult("PSX unavailable");
       return;
     }
     try {
@@ -153,12 +151,12 @@ export default function PsxDirectPanel() {
 
       // Send both to PSX
       const [wbRes, fuelRes] = await Promise.all([
-        fetch(`${psxBase}/psx/wb`, {
+        fetch(`${apiBase}/psx/wb`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ zfwKg: z }),
         }),
-        fetch(`${psxBase}/psx/fuel`, {
+        fetch(`${apiBase}/psx/fuel`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "total", totalKg: f }),
@@ -192,21 +190,21 @@ export default function PsxDirectPanel() {
     }
   }
 
-  // Read Qi132 via /api/psx/send, then decode ext1/ext2/ssb from bits
+  // Read Qi132 via a one-shot 'bang' dump, then decode ext1/ext2/ssb from bits.
   const syncPowerStatus = useCallback(async (showMessage = false) => {
     if (status !== "up") {
-      if (showMessage) setResult("PSX bridge disabled");
+      if (showMessage) setResult("PSX unavailable");
       return;
     }
     try {
-      const res = await fetch(`${psxBase}/psx/send`, {
+      const res = await fetch(`${apiBase}/psx/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ host, port, lines: ["Q=Qi132=?"] }),
+        body: JSON.stringify({ host, port, lines: ["bang"], waitMs: 700 }),
       });
       const j = await res.json();
       const text: string = String(j?.response || "");
-      const m = text.match(/Qi132\D+(\d+)/i) || text.match(/(\d+)/);
+      const m = text.match(/\bQi132=(-?\d+)\b/i);
       if (!m || !m[1]) {
         if (showMessage) setResult("Could not parse Qi132 from response");
         return;
@@ -228,19 +226,23 @@ export default function PsxDirectPanel() {
     } catch (e: any) {
       if (showMessage) setResult(`Error syncing power: ${e?.message || String(e)}`);
     }
-  }, [status, psxBase, host, port]);
+  }, [status, apiBase, host, port]);
 
   async function pushback(body: Record<string, any>) {
     if (status !== "up") {
-      setResult("PSX bridge disabled");
+      setResult("PSX unavailable");
       return;
     }
     try {
-      await fetch(`${psxBase}/psx/pushback`, {
+      const res = await fetch(`${apiBase}/psx/pushback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j?.ok) {
+        setResult(`Error: ${j?.error || `HTTP ${res.status}`}`);
+      }
     } catch (e: any) {
       setResult(`Error: ${e?.message || String(e)}`);
     }
@@ -248,7 +250,7 @@ export default function PsxDirectPanel() {
 
   async function applyPower(nextExt1: ExtState, nextExt2: ExtState, nextSsb: SsbState) {
     if (status !== "up") {
-      setResult("PSX bridge disabled");
+      setResult("PSX unavailable");
       return;
     }
     const baseNum = Number(extBase);
@@ -259,7 +261,7 @@ export default function PsxDirectPanel() {
 
     setBusy(true);
     try {
-      const res = await fetch(`${psxBase}/psx/power`, {
+      const res = await fetch(`${apiBase}/psx/power`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -308,15 +310,10 @@ export default function PsxDirectPanel() {
     void ping();
   }, [ping]);
 
-  // Periodically sync ext power state from PSX (Qi132)
+  // Sync external power state once when the panel is online.
   useEffect(() => {
-    const tick = () => {
-      void syncPowerStatus(false);
-    };
-    tick(); // initial sync
-    const id = setInterval(tick, 5000); // every 5 seconds
-    return () => clearInterval(id);
-  }, [host, port, syncPowerStatus]); // reattach poll if host/port changes
+    if (status === "up") void syncPowerStatus(false);
+  }, [status, host, port, syncPowerStatus]);
 
   const baseButton =
     "text-xs rounded-md border " +
@@ -515,8 +512,18 @@ export default function PsxDirectPanel() {
               onClick={async () => {
                 setBusy(true);
                 try {
-                  // TODO: Implement bleed/aircon apply logic
-                  setResult("Bleed/AirCon settings applied");
+                  const res = await fetch(`${apiBase}/psx/air`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ bleed, aircon }),
+                  });
+                  const j = await res.json().catch(() => ({}));
+                  setResult(
+                    j?.ok
+                      ? `Bleed/AirCon set (bits=${j?.bits ?? "n/a"})`
+                      : `Error: ${j?.error || `HTTP ${res.status}`}`,
+                  );
+                  if (!j?.ok) setStatus("down");
                 } finally {
                   setBusy(false);
                 }

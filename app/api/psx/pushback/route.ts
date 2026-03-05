@@ -15,11 +15,10 @@ export async function POST(req: NextRequest) {
     const hold = Boolean(body.hold);
     const key = String(body.key || "default");
 
-    if (!Number.isFinite(heading)) {
-      return Response.json({ ok: false, error: "heading must be a number (degrees)" }, { status: 400 });
-    }
-
     if (action === "start") {
+      if (!Number.isFinite(heading)) {
+        return Response.json({ ok: false, error: "heading must be a number (degrees)" }, { status: 400 });
+      }
       if (direction !== "forward" && direction !== "back") {
         return Response.json({ ok: false, error: "direction must be 'forward' or 'back'" }, { status: 400 });
       }
@@ -28,6 +27,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "stop") {
+      if (!Number.isFinite(heading)) {
+        return Response.json({ ok: false, error: "heading must be a number (degrees)" }, { status: 400 });
+      }
       const res = await stopPushback(heading);
       // Clearing any loop on stop
       const t = loops.get(key); if (t) { clearInterval(t); loops.delete(key); }
@@ -35,6 +37,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "turn") {
+      if (!Number.isFinite(heading)) {
+        return Response.json({ ok: false, error: "heading must be a number (degrees)" }, { status: 400 });
+      }
       if (direction !== "forward" && direction !== "back") {
         return Response.json({ ok: false, error: "direction must be 'forward' or 'back'" }, { status: 400 });
       }
@@ -54,7 +59,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true, released: true, key });
     }
 
-    return Response.json({ ok: false, error: "invalid action; expected start|stop|turn" }, { status: 400 });
+    return Response.json({ ok: false, error: "invalid action; expected start|stop|turn|release" }, { status: 400 });
   } catch (err: any) {
     return Response.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
   }

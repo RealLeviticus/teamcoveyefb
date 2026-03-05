@@ -13,6 +13,84 @@ export type SimbriefData = {
 
 const SB_ENDPOINT = "https://www.simbrief.com/api/xml.fetcher.php";
 
+export class SimbriefError extends Error {
+  status: number;
+  constructor(message: string, status = 500) {
+    super(message);
+    this.name = "SimbriefError";
+    this.status = status;
+  }
+}
+
+function parseSimbriefStatusFromBody(body: string): string | null {
+  const t = (body || "").trim();
+  if (!t) return null;
+  try {
+    const j = JSON.parse(t);
+    const status = j?.fetch?.status;
+    if (typeof status === "string" && status.trim()) return status.trim();
+  } catch {
+    // ignore
+  }
+  const m = t.match(/<status>([^<]+)<\/status>/i);
+  if (m?.[1]) return m[1].trim();
+  return null;
+}
+
+function buildIdKeys(identifier: string): Array<"username" | "userid" | "static_id"> {
+  const trimmed = identifier.trim();
+  const keys: Array<"username" | "userid" | "static_id"> = [];
+  if (/^\d+$/.test(trimmed)) keys.push("userid");
+  keys.push("username", "static_id");
+  return Array.from(new Set(keys));
+}
+
+type SimbriefRawResult = {
+  body: string;
+  url: string;
+  key: "username" | "userid" | "static_id";
+};
+
+async function fetchSimbriefRaw(identifier: string, asJson: boolean): Promise<SimbriefRawResult> {
+  const id = identifier.trim();
+  if (!id) throw new SimbriefError("No SimBrief username provided.", 400);
+
+  const keys = buildIdKeys(id);
+  let lastMessage = "Unable to reach SimBrief.";
+  let lastStatus = 502;
+
+  for (const key of keys) {
+    const url = `${SB_ENDPOINT}?${key}=${encodeURIComponent(id)}${asJson ? "&json=1" : ""}`;
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "GET",
+        cache: "no-store",
+        redirect: "follow",
+        headers: { "User-Agent": "CoveyEFB/1.0 (+simbrief)" },
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (e: any) {
+      lastMessage = `SimBrief request failed (${key}): ${e?.message || String(e)}`;
+      lastStatus = 502;
+      continue;
+    }
+
+    const body = await res.text();
+    if (res.ok && body.trim()) {
+      return { body, url, key };
+    }
+
+    const statusText = parseSimbriefStatusFromBody(body);
+    lastMessage = statusText
+      ? `SimBrief ${key} error: ${statusText}`
+      : `SimBrief ${key} fetch failed (HTTP ${res.status}).`;
+    lastStatus = res.status >= 500 ? 502 : 400;
+  }
+
+  throw new SimbriefError(lastMessage, lastStatus);
+}
+
 function isPdfFilename(s: string) {
   return /^[A-Za-z0-9._-]+_PDF_\d+\.pdf$/i.test(s) || /^[A-Za-z0-9._-]+\.pdf$/i.test(s);
 }
@@ -65,14 +143,7 @@ export function normaliseSimbriefPdfUrl(raw: string | undefined): string | undef
 }
 
 export async function fetchSimbriefXml(username: string): Promise<string> {
-  if (!username) throw new Error("No SimBrief username provided.");
-  const url = `${SB_ENDPOINT}?username=${encodeURIComponent(username)}`;
-  const res = await fetch(url, { method: "GET" });
-
-  const body = await res.text();
-  if (!res.ok) {
-    throw new Error(`SimBrief fetch failed (HTTP ${res.status}). ${body.slice(0, 160)}`);
-  }
+  const { body } = await fetchSimbriefRaw(username, false);
   if (!body.trim()) throw new Error("SimBrief returned empty body.");
 
   const head = body.trim().slice(0, 64).toLowerCase();
@@ -80,6 +151,21 @@ export async function fetchSimbriefXml(username: string): Promise<string> {
     throw new Error("SimBrief responded with HTML (login/CF/error page).");
   }
   return body;
+}
+
+export async function fetchSimbriefJson(identifier: string): Promise<any> {
+  const { body } = await fetchSimbriefRaw(identifier, true);
+  let parsed: any;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    throw new SimbriefError("SimBrief returned invalid JSON.", 502);
+  }
+  const statusText = parseSimbriefStatusFromBody(body);
+  if (statusText && /^error\b/i.test(statusText)) {
+    throw new SimbriefError(`SimBrief error: ${statusText}`, 400);
+  }
+  return parsed;
 }
 
 export function parseSimbrief(xml: string): SimbriefData {
@@ -120,7 +206,7 @@ export function parseSimbrief(xml: string): SimbriefData {
 
     let chosen: Cand | undefined;
     if (planIdDigits) {
-      chosen = cands.find((c) => new RegExp(`_PDF_${planIdDigits}\.pdf$`, "i").test(c.href));
+      chosen = cands.find((c) => new RegExp(`_PDF_${planIdDigits}\\.pdf$`, "i").test(c.href));
     }
     if (!chosen) {
       // pick the one with the largest numeric suffix if available
