@@ -12,6 +12,9 @@ out/
 build/
 .next.cache/
 .vercel/
+.wrangler/
+wrangler-dev.out
+wrangler-dev.err
 
 # Electron
 dist-electron/
@@ -32,6 +35,8 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+.dev.vars
+.dev.vars.*
 
 # OS cruft
 .DS_Store
