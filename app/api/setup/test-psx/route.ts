@@ -1,4 +1,4 @@
-import { resolvePsxTarget } from "@/lib/backendConfig";
+import { resolvePsxReferencesDir, resolvePsxTarget } from "@/lib/backendConfig";
 import { readSetupSession } from "@/lib/setupAuth";
 
 export const runtime = "nodejs";
@@ -13,6 +13,9 @@ export async function POST(req: Request): Promise<Response> {
   if (!session) return unauthorized();
 
   const { host, port } = resolvePsxTarget();
+  const referencesDir = resolvePsxReferencesDir();
+  const fs = await import("node:fs");
+  const referencesDirExists = fs.existsSync(referencesDir);
   const net = await import("node:net");
 
   return new Promise<Response>((resolve) => {
@@ -26,7 +29,16 @@ export async function POST(req: Request): Promise<Response> {
       } catch {}
       resolve(
         Response.json(
-          ok ? { ok: true, host, port } : { ok: false, host, port, error: error || "PSX connection failed" },
+          ok
+            ? { ok: true, host, port, referencesDir, referencesDirExists }
+            : {
+                ok: false,
+                host,
+                port,
+                referencesDir,
+                referencesDirExists,
+                error: error || "PSX connection failed",
+              },
           { status: ok ? 200 : 502 },
         ),
       );
@@ -37,4 +49,3 @@ export async function POST(req: Request): Promise<Response> {
     socket.connect(port, host, () => finish(true));
   });
 }
-

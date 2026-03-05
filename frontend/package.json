@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "cf:preview": "npm run build && wrangler pages dev out --compatibility-date=2026-03-06 --port 8787"
+    "cf:preview": "npm run build && wrangler pages dev out --compatibility-date=2026-03-05 --port 8787"
   },
   "dependencies": {
     "fast-xml-parser": "^5.3.1",

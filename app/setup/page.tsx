@@ -10,6 +10,7 @@ type AuthState =
 type SetupConfig = {
   psxHost: string;
   psxPort: number;
+  psxReferencesDir: string;
   updatedAt?: string | null;
 };
 
@@ -19,7 +20,11 @@ export default function SetupPage() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<string>("");
-  const [config, setConfig] = useState<SetupConfig>({ psxHost: "127.0.0.1", psxPort: 10747 });
+  const [config, setConfig] = useState<SetupConfig>({
+    psxHost: "127.0.0.1",
+    psxPort: 10747,
+    psxReferencesDir: "C:\\Users\\levis\\OneDrive\\Documents 1\\Aerowinx\\Developers",
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +74,9 @@ export default function SetupPage() {
       setConfig({
         psxHost: String(j.config?.psxHost || "127.0.0.1"),
         psxPort: Number(j.config?.psxPort || 10747),
+        psxReferencesDir: String(
+          j.config?.psxReferencesDir || "C:\\Users\\levis\\OneDrive\\Documents 1\\Aerowinx\\Developers",
+        ),
         updatedAt: j.config?.updatedAt || null,
       });
     } catch (e: any) {
@@ -93,6 +101,7 @@ export default function SetupPage() {
       setConfig({
         psxHost: String(j.config?.psxHost || config.psxHost),
         psxPort: Number(j.config?.psxPort || config.psxPort),
+        psxReferencesDir: String(j.config?.psxReferencesDir || config.psxReferencesDir),
         updatedAt: j.config?.updatedAt || new Date().toISOString(),
       });
     } catch (e: any) {
@@ -109,7 +118,8 @@ export default function SetupPage() {
       const res = await fetch("/api/setup/test-psx", { method: "POST" });
       const j = await res.json();
       if (!res.ok || !j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
-      setMessage(`PSX reachable at ${j.host}:${j.port}`);
+      const refsHint = j.referencesDirExists ? "found" : "not found";
+      setMessage(`PSX reachable at ${j.host}:${j.port}. References folder ${refsHint}: ${j.referencesDir}`);
     } catch (e: any) {
       setMessage(`PSX test failed: ${e?.message || String(e)}`);
     } finally {
@@ -186,6 +196,18 @@ export default function SetupPage() {
           </label>
         </div>
 
+        <label className="text-sm block">
+          <span className="block text-xs opacity-70 mb-1">PSX References Folder</span>
+          <input
+            value={config.psxReferencesDir}
+            onChange={(e) => setConfig((c) => ({ ...c, psxReferencesDir: e.target.value }))}
+            className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
+          />
+          <span className="block text-[11px] opacity-60 mt-1">
+            Used for Aerowinx developer/reference files (default: C:\Users\levis\OneDrive\Documents 1\Aerowinx\Developers).
+          </span>
+        </label>
+
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => void saveConfig()}
@@ -220,9 +242,9 @@ export default function SetupPage() {
           <li>Set `EFB_REQUIRE_SERVICE_TOKEN=1` on this backend in production.</li>
           <li>Set the same token value in Cloudflare Pages as `BACKEND_SERVICE_TOKEN`.</li>
           <li>Keep `EFB_ALLOW_CLIENT_PSX_TARGET=0` so users cannot override host/port from the public app.</li>
+          <li>Set references folder to `C:\Users\levis\OneDrive\Documents 1\Aerowinx\Developers` unless you use another PSX docs path.</li>
         </ul>
       </div>
     </div>
   );
 }
-

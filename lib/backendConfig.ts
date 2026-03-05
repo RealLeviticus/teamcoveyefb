@@ -5,10 +5,12 @@ import path from "node:path";
 export type BackendConfig = {
   psxHost?: string;
   psxPort?: number;
+  psxReferencesDir?: string;
   updatedAt?: string;
 };
 
 const DEFAULT_CONFIG_PATH = path.join(os.homedir(), ".teamcovey-efb", "backend-config.json");
+export const DEFAULT_PSX_REFERENCES_DIR = "C:\\Users\\levis\\OneDrive\\Documents 1\\Aerowinx\\Developers";
 
 function parsePort(v: unknown): number | undefined {
   const n = typeof v === "number" ? v : Number(String(v ?? "").trim());
@@ -19,6 +21,11 @@ function parsePort(v: unknown): number | undefined {
 }
 
 function cleanHost(v: unknown): string | undefined {
+  const s = String(v ?? "").trim();
+  return s || undefined;
+}
+
+function cleanReferencesDir(v: unknown): string | undefined {
   const s = String(v ?? "").trim();
   return s || undefined;
 }
@@ -36,6 +43,7 @@ export function readBackendConfig(): BackendConfig {
     return {
       psxHost: cleanHost(parsed.psxHost),
       psxPort: parsePort(parsed.psxPort),
+      psxReferencesDir: cleanReferencesDir(parsed.psxReferencesDir),
       updatedAt: parsed.updatedAt,
     };
   } catch {
@@ -49,6 +57,7 @@ export function writeBackendConfig(next: Partial<BackendConfig>): BackendConfig 
     ...current,
     psxHost: cleanHost(next.psxHost) ?? current.psxHost,
     psxPort: parsePort(next.psxPort) ?? current.psxPort,
+    psxReferencesDir: cleanReferencesDir(next.psxReferencesDir) ?? current.psxReferencesDir,
     updatedAt: new Date().toISOString(),
   };
   const file = backendConfigPath();
@@ -76,3 +85,11 @@ export function resolvePsxTarget(overrides?: { host?: string; port?: number }) {
   return { host, port };
 }
 
+export function resolvePsxReferencesDir() {
+  const cfg = readBackendConfig();
+  return (
+    cleanReferencesDir(cfg.psxReferencesDir) ||
+    cleanReferencesDir(process.env.PSX_REFERENCES_DIR) ||
+    DEFAULT_PSX_REFERENCES_DIR
+  );
+}

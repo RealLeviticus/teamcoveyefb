@@ -13,7 +13,8 @@ Set these values:
 - `EFB_SERVICE_TOKEN=...` (must match Cloudflare `BACKEND_SERVICE_TOKEN`)
 - `EFB_ALLOW_CLIENT_PSX_TARGET=0`
 - `SETUP_DISCORD_*`, `SETUP_ALLOWED_ROLE_IDS`, `SETUP_SESSION_SECRET`
-- `SETUP_BASE_URL=https://backend-api.teamcovey.com`
+- `SETUP_BASE_URL=https://backend-api.teamcovey.org`
+- `PSX_REFERENCES_DIR=C:\Users\levis\OneDrive\Documents 1\Aerowinx\Developers` (or your preferred path)
 
 ## 2) Install and run
 
@@ -28,16 +29,16 @@ By default the backend serves on `http://0.0.0.0:3000`.
 ## 3) Expose backend securely
 
 Expose backend with Cloudflare Tunnel (or equivalent) on a dedicated hostname, for example:
-- `https://backend-api.teamcovey.com`
+- `https://backend-api.teamcovey.org`
 
 The backend API rejects requests without `x-efb-service-token` when `EFB_REQUIRE_SERVICE_TOKEN=1`.
 
 ## 4) Setup UI
 
 Open:
-- `https://backend-api.teamcovey.com/setup`
+- `https://backend-api.teamcovey.org/setup`
 
-Login with Discord (role-gated), then configure PSX host/port.
+Login with Discord (role-gated), then configure PSX host/port and references folder.
 The values are saved in:
 - `%ProgramData%\TeamCoveyEFB\backend-config.json` if `EFB_CONFIG_PATH` is set
 - otherwise `%USERPROFILE%\.teamcovey-efb\backend-config.json`
@@ -47,4 +48,3 @@ The values are saved in:
 - Frontend (Cloudflare Pages) handles user OAuth and role-gating.
 - Frontend `/api/*` calls are proxied to backend `/api/*`.
 - Backend uses saved PSX host/port and ignores client overrides unless `EFB_ALLOW_CLIENT_PSX_TARGET=1`.
-

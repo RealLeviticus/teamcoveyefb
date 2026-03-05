@@ -1,5 +1,6 @@
 Param(
-  [string]$ConfigPath = "$env:ProgramData\TeamCoveyEFB\backend-config.json"
+  [string]$ConfigPath = "$env:ProgramData\TeamCoveyEFB\backend-config.json",
+  [string]$PsxReferencesDir = "C:\Users\levis\OneDrive\Documents 1\Aerowinx\Developers"
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,7 +13,12 @@ if (-not (Test-Path $configDir)) {
 }
 
 if (-not (Test-Path $ConfigPath)) {
-  '{ "psxHost": "127.0.0.1", "psxPort": 10747 }' | Out-File -FilePath $ConfigPath -Encoding utf8
+  $json = @{
+    psxHost = "127.0.0.1"
+    psxPort = 10747
+    psxReferencesDir = $PsxReferencesDir
+  } | ConvertTo-Json
+  $json | Out-File -FilePath $ConfigPath -Encoding utf8
   Write-Host "Created config file at $ConfigPath"
 } else {
   Write-Host "Config file already exists at $ConfigPath"
@@ -30,5 +36,4 @@ Write-Host "Next steps:"
 Write-Host "1) Edit .env.backend"
 Write-Host "2) Set env vars from .env.backend in your service manager"
 Write-Host "3) Run: npm ci && npm run build && npm run start"
-Write-Host "4) Open /setup and sign in with Discord to finalize PSX host/port"
-
+Write-Host "4) Open /setup and sign in with Discord to finalize PSX host/port/references folder"

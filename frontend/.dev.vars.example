@@ -3,5 +3,5 @@ DISCORD_CLIENT_ID=your-discord-app-client-id
 DISCORD_CLIENT_SECRET=your-discord-app-client-secret
 DISCORD_GUILD_ID=your-discord-server-id
 DISCORD_ALLOWED_ROLE_IDS=comma,separated,role,ids
-BACKEND_BASE_URL=https://backend-api.teamcovey.com
+BACKEND_BASE_URL=https://backend-api.teamcovey.org
 BACKEND_SERVICE_TOKEN=shared-secret-used-between-pages-and-backend

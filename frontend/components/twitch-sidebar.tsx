@@ -17,7 +17,7 @@ function TwitchSidebarInner() {
           <TwitchChat
             channel="teamcovey"
             className="w-full h-full"
-            // extraParents={["efb.teamcovey.com", "www.efb.teamcovey.com"]}
+            // extraParents={["efb.teamcovey.org", "www.efb.teamcovey.org"]}
           />
         </div>
       </Panel>
