@@ -25,7 +25,7 @@ export const TwitchChat = memo(function TwitchChat({
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const [httpBlocked, setHttpBlocked] = useState(false);
-  const loadTimer = useRef<NodeJS.Timeout | null>(null);
+  const loadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const first = useRef(true);
 
   // Host discovery for Twitch parent requirement

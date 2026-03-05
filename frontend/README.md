@@ -6,7 +6,8 @@ It is a static Next.js export (`out/`) plus Cloudflare Pages Functions for:
 - Discord OAuth login
 - Discord role-based authorization
 - Session cookie handling
-- `/api/*` proxy to the backend on the PSX PC
+- Frontend-hosted APIs for SimBrief, VATSIM, WX, and ACARS
+- `/api/psx/*` proxy to the backend on the PSX PC
 
 ## 1) Configure Cloudflare Pages
 
@@ -47,7 +48,9 @@ npm run cf:preview
 ## 5) API behavior
 
 Browser calls still use `/api/...`.
-Pages Functions forward those requests to `${BACKEND_BASE_URL}/api/...` and inject `x-efb-service-token`.
+Pages Functions route these as:
+- `/api/psx/*` -> forwarded to `${BACKEND_BASE_URL}/api/psx/*` with `x-efb-service-token`
+- `/api/simbrief/*`, `/api/vatsim/*`, `/api/wx/*`, `/api/acars/*` -> served directly on Cloudflare Pages
 
 ## 6) 404 checklist for custom domain
 

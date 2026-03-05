@@ -1,4 +1,4 @@
-import { readSession } from "../_lib/session";
+import { readSession } from "../../_lib/session";
 
 type Env = {
   FRONTEND_SESSION_SECRET: string;
@@ -8,18 +8,21 @@ type Env = {
 
 function buildUpstreamUrl(base: string, incoming: URL): URL {
   const trimmed = base.replace(/\/+$/, "");
-  const tail = incoming.pathname.replace(/^\/api\/?/, "");
-  const out = new URL(`${trimmed}/api/${tail}`);
+  const tail = incoming.pathname.replace(/^\/api\/psx\/?/, "");
+  const out = new URL(`${trimmed}/api/psx/${tail}`);
   out.search = incoming.search;
   return out;
 }
 
 export const onRequest: PagesFunction<Env> = async (context) => {
-  const { BACKEND_BASE_URL: backendBase, BACKEND_SERVICE_TOKEN: serviceToken, FRONTEND_SESSION_SECRET: secret } =
-    context.env;
+  const {
+    BACKEND_BASE_URL: backendBase,
+    BACKEND_SERVICE_TOKEN: serviceToken,
+    FRONTEND_SESSION_SECRET: secret,
+  } = context.env;
 
   if (!backendBase || !serviceToken || !secret) {
-    return new Response(JSON.stringify({ ok: false, error: "Proxy env is incomplete." }), {
+    return new Response(JSON.stringify({ ok: false, error: "PSX proxy env is incomplete." }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });

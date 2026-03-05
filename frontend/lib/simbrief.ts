@@ -51,6 +51,12 @@ type SimbriefRawResult = {
   key: "username" | "userid" | "static_id";
 };
 
+function timeoutSignal(ms: number): AbortSignal | undefined {
+  const a: any = AbortSignal as any;
+  if (a && typeof a.timeout === "function") return a.timeout(ms);
+  return undefined;
+}
+
 async function fetchSimbriefRaw(identifier: string, asJson: boolean): Promise<SimbriefRawResult> {
   const id = identifier.trim();
   if (!id) throw new SimbriefError("No SimBrief username provided.", 400);
@@ -68,7 +74,7 @@ async function fetchSimbriefRaw(identifier: string, asJson: boolean): Promise<Si
         cache: "no-store",
         redirect: "follow",
         headers: { "User-Agent": "CoveyEFB/1.0 (+simbrief)" },
-        signal: AbortSignal.timeout(15000),
+        signal: timeoutSignal(15000),
       });
     } catch (e: any) {
       lastMessage = `SimBrief request failed (${key}): ${e?.message || String(e)}`;
