@@ -22,6 +22,11 @@ npm install
 npm run electron:dev
 ```
 
+### Split Deployment (Cloudflare + PSX PC Backend)
+- Frontend (Cloudflare Pages): see `frontend/README.md`
+- Backend (runs on PSX PC): see `backend/README.md`
+- Backend setup UI: `/setup` (Discord role-gated)
+
 ### Build Windows Installer
 **PowerShell (Recommended):**
 ```powershell

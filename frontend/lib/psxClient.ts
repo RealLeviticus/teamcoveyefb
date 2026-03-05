@@ -1,6 +1,5 @@
 import net from "net";
 import { psxIntRangeError } from "@/lib/psxVariables";
-import { resolvePsxTarget } from "@/lib/backendConfig";
 
 export type PsxClientOptions = {
   host?: string;
@@ -9,9 +8,8 @@ export type PsxClientOptions = {
 };
 
 function getOpts(overrides?: PsxClientOptions): Required<PsxClientOptions> {
-  const target = resolvePsxTarget({ host: overrides?.host, port: overrides?.port });
-  const host = target.host;
-  const port = target.port;
+  const host = overrides?.host || process.env.PSX_HOST || "127.0.0.1";
+  const port = overrides?.port || Number(process.env.PSX_PORT || 10747);
   const timeoutMs = overrides?.timeoutMs || 4000;
   return { host, port, timeoutMs };
 }

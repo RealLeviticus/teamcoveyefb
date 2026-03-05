@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
+import { resolvePsxTarget } from "@/lib/backendConfig";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request): Promise<Response> {
   const { searchParams } = new URL(req.url);
-  const host = (searchParams.get("host") || "127.0.0.1").trim();
-  const port = parseInt((searchParams.get("port") || "10747").trim(), 10);
+  const hostParam = searchParams.get("host") || undefined;
+  const portParamRaw = searchParams.get("port");
+  const portParam = portParamRaw ? Number.parseInt(portParamRaw.trim(), 10) : undefined;
+  const { host, port } = resolvePsxTarget({ host: hostParam, port: portParam });
   if (!host || !Number.isFinite(port)) return NextResponse.json({ ok: false, error: "Invalid host/port" }, { status: 400 });
 
   const net = await import("node:net");

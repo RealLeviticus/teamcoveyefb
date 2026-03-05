@@ -1,0 +1,78 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+export type BackendConfig = {
+  psxHost?: string;
+  psxPort?: number;
+  updatedAt?: string;
+};
+
+const DEFAULT_CONFIG_PATH = path.join(os.homedir(), ".teamcovey-efb", "backend-config.json");
+
+function parsePort(v: unknown): number | undefined {
+  const n = typeof v === "number" ? v : Number(String(v ?? "").trim());
+  if (!Number.isFinite(n)) return undefined;
+  const p = Math.round(n);
+  if (p < 1 || p > 65535) return undefined;
+  return p;
+}
+
+function cleanHost(v: unknown): string | undefined {
+  const s = String(v ?? "").trim();
+  return s || undefined;
+}
+
+export function backendConfigPath(): string {
+  const envPath = String(process.env.EFB_CONFIG_PATH || "").trim();
+  return envPath || DEFAULT_CONFIG_PATH;
+}
+
+export function readBackendConfig(): BackendConfig {
+  const file = backendConfigPath();
+  try {
+    const raw = fs.readFileSync(file, "utf8");
+    const parsed = JSON.parse(raw) as BackendConfig;
+    return {
+      psxHost: cleanHost(parsed.psxHost),
+      psxPort: parsePort(parsed.psxPort),
+      updatedAt: parsed.updatedAt,
+    };
+  } catch {
+    return {};
+  }
+}
+
+export function writeBackendConfig(next: Partial<BackendConfig>): BackendConfig {
+  const current = readBackendConfig();
+  const merged: BackendConfig = {
+    ...current,
+    psxHost: cleanHost(next.psxHost) ?? current.psxHost,
+    psxPort: parsePort(next.psxPort) ?? current.psxPort,
+    updatedAt: new Date().toISOString(),
+  };
+  const file = backendConfigPath();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(merged, null, 2), "utf8");
+  return merged;
+}
+
+export function resolvePsxTarget(overrides?: { host?: string; port?: number }) {
+  const cfg = readBackendConfig();
+  const allowClientOverride = process.env.EFB_ALLOW_CLIENT_PSX_TARGET === "1";
+
+  const host =
+    (allowClientOverride ? cleanHost(overrides?.host) : undefined) ||
+    cleanHost(cfg.psxHost) ||
+    cleanHost(process.env.PSX_HOST) ||
+    "127.0.0.1";
+
+  const port =
+    (allowClientOverride ? parsePort(overrides?.port) : undefined) ||
+    parsePort(cfg.psxPort) ||
+    parsePort(process.env.PSX_PORT) ||
+    10747;
+
+  return { host, port };
+}
+

@@ -1,0 +1,31 @@
+{
+  "name": "team-covey-efb-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "cf:preview": "npm run build && wrangler pages dev out --compatibility-date=2026-03-06 --port 8787"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.3.1",
+    "next": "14.2.11",
+    "next-themes": "^0.4.6",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260305.1",
+    "@types/node": "24.10.0",
+    "@types/react": "19.2.2",
+    "autoprefixer": "10.4.20",
+    "eslint": "8.57.1",
+    "eslint-config-next": "14.2.11",
+    "postcss": "8.4.47",
+    "tailwindcss": "3.4.13",
+    "typescript": "5.6.3",
+    "wrangler": "^4.56.0"
+  }
+}

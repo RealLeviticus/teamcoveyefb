@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolvePsxTarget } from "@/lib/backendConfig";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,8 +9,7 @@ type Body = { host?: string; port?: number; lines?: string[]; waitMs?: number };
 export async function POST(req: Request): Promise<Response> {
   let j: Body = {};
   try { j = await req.json(); } catch {}
-  const host = (j.host || "127.0.0.1").trim();
-  const port = Number.isFinite(j.port as number) ? (j.port as number) : 10747;
+  const { host, port } = resolvePsxTarget({ host: j.host, port: j.port });
   const lines = Array.isArray(j.lines) ? j.lines : [];
   const waitMsRaw = Number(j.waitMs);
   const waitMs = Number.isFinite(waitMsRaw)
