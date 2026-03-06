@@ -19,12 +19,27 @@ function levelToPct(level: number): number {
   return clampPct(level * 100);
 }
 
+function summarizeErrorPayload(text: string, status: number): string {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) return `HTTP ${status}`;
+
+  const isHtml = /<!doctype html|<html[\s>]/i.test(trimmed);
+  if (isHtml) {
+    if (/error\s*1016|origin dns error/i.test(trimmed)) {
+      return "Backend unavailable (Cloudflare 1016 Origin DNS error). Check backend DNS/tunnel and BACKEND_BASE_URL.";
+    }
+    return `Upstream returned HTML error (HTTP ${status})`;
+  }
+
+  return trimmed.replace(/\s+/g, " ").slice(0, 220);
+}
+
 async function parseJsonSafe(res: Response): Promise<any> {
   const text = await res.text();
   try {
     return JSON.parse(text);
   } catch {
-    return { ok: false, error: text || `HTTP ${res.status}` };
+    return { ok: false, error: summarizeErrorPayload(text, res.status) };
   }
 }
 
@@ -37,6 +52,13 @@ export default function AudioX32Panel() {
   const [channel, setChannel] = useState(1);
   const [channelOn, setChannelOn] = useState(true);
   const [channelFaderPct, setChannelFaderPct] = useState(75);
+
+  const [bus, setBus] = useState(1);
+  const [sendOn, setSendOn] = useState(true);
+  const [sendLevelPct, setSendLevelPct] = useState(50);
+  const [busOn, setBusOn] = useState(true);
+  const [busFaderPct, setBusFaderPct] = useState(75);
+
   const [mainOn, setMainOn] = useState(true);
   const [mainFaderPct, setMainFaderPct] = useState(75);
 
@@ -47,7 +69,7 @@ export default function AudioX32Panel() {
         const res = await fetch("/api/audio/x32", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "status", channel }),
+          body: JSON.stringify({ action: "status", channel, bus }),
           cache: "no-store",
         });
         const j = await parseJsonSafe(res);
@@ -58,6 +80,10 @@ export default function AudioX32Panel() {
         setChannelFaderPct(levelToPct(Number(j.channelFader)));
         setMainOn(!!j.mainOn);
         setMainFaderPct(levelToPct(Number(j.mainFader)));
+        setSendOn(!!j.sendOn);
+        setSendLevelPct(levelToPct(Number(j.sendLevel)));
+        setBusOn(!!j.busOn);
+        setBusFaderPct(levelToPct(Number(j.busFader)));
         setStatus("up");
         if (showMessage) setResult("X32 status refreshed");
       } catch (e: any) {
@@ -65,7 +91,7 @@ export default function AudioX32Panel() {
         setResult(`Status failed: ${e?.message || String(e)}`);
       }
     },
-    [channel],
+    [channel, bus],
   );
 
   async function ping() {
@@ -137,6 +163,57 @@ export default function AudioX32Panel() {
     }
   }
 
+  async function applyBusSend(nextOn = sendOn, nextPct = sendLevelPct) {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/audio/x32", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "setBusSend",
+          channel,
+          bus,
+          sendOn: !!nextOn,
+          sendLevel: pctToLevel(nextPct),
+        }),
+      });
+      const j = await parseJsonSafe(res);
+      if (!res.ok || !j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
+      setResult(`Send Ch ${String(channel).padStart(2, "0")} -> Bus ${String(bus).padStart(2, "0")} updated`);
+      await refreshStatus(false);
+    } catch (e: any) {
+      setResult(`Bus send update failed: ${e?.message || String(e)}`);
+      setStatus("down");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyBus(nextOn = busOn, nextPct = busFaderPct) {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/audio/x32", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "setBus",
+          bus,
+          busOn: !!nextOn,
+          busFader: pctToLevel(nextPct),
+        }),
+      });
+      const j = await parseJsonSafe(res);
+      if (!res.ok || !j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
+      setResult(`Bus ${String(bus).padStart(2, "0")} master updated`);
+      await refreshStatus(false);
+    } catch (e: any) {
+      setResult(`Bus master update failed: ${e?.message || String(e)}`);
+      setStatus("down");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   useEffect(() => {
     void refreshStatus(false);
   }, [refreshStatus]);
@@ -157,7 +234,7 @@ export default function AudioX32Panel() {
               : "bg-red-500/20 text-red-700 dark:text-red-400",
           ].join(" ")}
         >
-          {status === "checking" ? "Checking…" : status === "up" ? "X32 Online" : "X32 Offline"}
+          {status === "checking" ? "Checking..." : status === "up" ? "X32 Online" : "X32 Offline"}
         </span>
         <span className="text-xs opacity-70">{target}</span>
         <button onClick={() => void ping()} disabled={busy} className={baseButton}>
@@ -276,8 +353,114 @@ export default function AudioX32Panel() {
         </div>
       </section>
 
+      <section className="rounded-lg border border-neutral-200 dark:border-neutral-800">
+        <header className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60">
+          <h3 className="text-sm font-semibold">Bus Mix</h3>
+        </header>
+        <div className="p-3 space-y-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-[12px] opacity-80">Bus</label>
+            <input
+              value={String(bus)}
+              onChange={(e) =>
+                setBus(clampInt(Number.parseInt(e.target.value || "1", 10) || 1, 1, 16))
+              }
+              inputMode="numeric"
+              className="w-20 rounded-md border px-2 py-1 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
+            />
+            <button
+              onClick={() => void refreshStatus(true)}
+              disabled={busy}
+              className={baseButton}
+            >
+              Load
+            </button>
+            <span className="text-[11px] opacity-70">
+              Ch {String(channel).padStart(2, "0")} -&gt; Bus {String(bus).padStart(2, "0")}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const next = !sendOn;
+                setSendOn(next);
+                void applyBusSend(next, sendLevelPct);
+              }}
+              disabled={busy}
+              className={[
+                "text-xs rounded-md border px-2 py-1",
+                sendOn
+                  ? "bg-green-500/20 text-green-700 dark:text-green-400 border-green-700/40"
+                  : "bg-red-500/20 text-red-700 dark:text-red-400 border-red-700/40",
+              ].join(" ")}
+            >
+              {sendOn ? "Send On" : "Send Off"}
+            </button>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[12px] opacity-80">Send Level {sendLevelPct}%</label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={sendLevelPct}
+              onChange={(e) => setSendLevelPct(clampPct(Number(e.target.value)))}
+              className="w-full"
+            />
+          </div>
+
+          <button
+            onClick={() => void applyBusSend(sendOn, sendLevelPct)}
+            disabled={busy}
+            className={baseButton}
+          >
+            Apply Bus Send
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const next = !busOn;
+                setBusOn(next);
+                void applyBus(next, busFaderPct);
+              }}
+              disabled={busy}
+              className={[
+                "text-xs rounded-md border px-2 py-1",
+                busOn
+                  ? "bg-green-500/20 text-green-700 dark:text-green-400 border-green-700/40"
+                  : "bg-red-500/20 text-red-700 dark:text-red-400 border-red-700/40",
+              ].join(" ")}
+            >
+              {busOn ? "Bus On" : "Bus Off"}
+            </button>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[12px] opacity-80">Bus Fader {busFaderPct}%</label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={busFaderPct}
+              onChange={(e) => setBusFaderPct(clampPct(Number(e.target.value)))}
+              className="w-full"
+            />
+          </div>
+
+          <button
+            onClick={() => void applyBus(busOn, busFaderPct)}
+            disabled={busy}
+            className={baseButton}
+          >
+            Apply Bus Master
+          </button>
+        </div>
+      </section>
+
       {result && <div className="text-[11px] opacity-70">{result}</div>}
     </div>
   );
 }
-

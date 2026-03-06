@@ -9,13 +9,16 @@
         "dev": "next dev",
         "dev:lan": "next dev -H 0.0.0.0",
         "dev:https": "next dev -H 0.0.0.0 --experimental-https --experimental-https-cert ./cert.pem --experimental-https-key ./key.pem",
-        "build": "next build && npm run postbuild && electron-builder",
+        "build:next": "next build && npm run postbuild",
+        "build": "npm run build:next && electron-builder",
         "postbuild": "node -e \"const fs = require('fs'); const path = require('path'); const src = '.next/static'; const dest = '.next/standalone/.next/static'; const pub = '.next/standalone/public'; fs.cpSync(src, dest, {recursive: true}); fs.cpSync('public', pub, {recursive: true});\"",
         "start": "next start -H 0.0.0.0",
         "lint": "next lint",
         "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
         "pack": "electron-builder --dir",
-        "dist": "electron-builder"
+        "dist": "electron-builder",
+        "pack:backend": "npm run build:next && electron-builder --config electron-builder.backend.json --dir",
+        "dist:backend": "npm run build:next && electron-builder --config electron-builder.backend.json"
     },
     "dependencies": {
         "fast-xml-parser": "^5.3.1",

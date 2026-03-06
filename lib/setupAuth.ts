@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 export const SETUP_SESSION_COOKIE = "efb_setup_session";
 export const SETUP_STATE_COOKIE = "efb_setup_oauth_state";
 export const SETUP_NEXT_COOKIE = "efb_setup_oauth_next";
+const DEFAULT_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export type SetupSession = {
   sub: string;
@@ -163,5 +164,13 @@ export function safeNextPath(v: string | null | undefined): string {
 
 export function randomState(): string {
   return crypto.randomBytes(18).toString("hex");
+}
+
+export function setupSessionTtlSeconds(): number {
+  const rawDays = Number(String(process.env.SETUP_SESSION_TTL_DAYS || "").trim());
+  if (Number.isFinite(rawDays) && rawDays > 0) {
+    return Math.max(60, Math.round(rawDays * 24 * 60 * 60));
+  }
+  return DEFAULT_SESSION_TTL_SECONDS;
 }
 

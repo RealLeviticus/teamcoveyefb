@@ -13,6 +13,7 @@ type SetupConfig = {
   psxReferencesDir: string;
   x32Host: string;
   x32Port: number;
+  callRoutes: Record<"1" | "2" | "3" | "4" | "5" | "6" | "P", string>;
   updatedAt?: string | null;
 };
 
@@ -28,6 +29,15 @@ export default function SetupPage() {
     psxReferencesDir: "C:\\Users\\levis\\OneDrive\\Documents 1\\Aerowinx\\Developers",
     x32Host: "127.0.0.1",
     x32Port: 10023,
+    callRoutes: {
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      P: "0401 495 110",
+    },
   });
 
   useEffect(() => {
@@ -63,10 +73,11 @@ export default function SetupPage() {
   }, []);
 
   useEffect(() => {
-    if (auth.loading || !auth.authenticated) return;
+    const authenticated = auth.loading ? false : auth.authenticated;
+    if (!authenticated) return;
     void loadConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.loading, auth.authenticated]);
+  }, [auth]);
 
   async function loadConfig() {
     setLoadingConfig(true);
@@ -83,6 +94,15 @@ export default function SetupPage() {
         ),
         x32Host: String(j.config?.x32Host || "127.0.0.1"),
         x32Port: Number(j.config?.x32Port || 10023),
+        callRoutes: {
+          "1": String(j.config?.callRoutes?.["1"] || ""),
+          "2": String(j.config?.callRoutes?.["2"] || ""),
+          "3": String(j.config?.callRoutes?.["3"] || ""),
+          "4": String(j.config?.callRoutes?.["4"] || ""),
+          "5": String(j.config?.callRoutes?.["5"] || ""),
+          "6": String(j.config?.callRoutes?.["6"] || ""),
+          P: String(j.config?.callRoutes?.P || "0401 495 110"),
+        },
         updatedAt: j.config?.updatedAt || null,
       });
     } catch (e: any) {
@@ -110,6 +130,15 @@ export default function SetupPage() {
         psxReferencesDir: String(j.config?.psxReferencesDir || config.psxReferencesDir),
         x32Host: String(j.config?.x32Host || config.x32Host),
         x32Port: Number(j.config?.x32Port || config.x32Port),
+        callRoutes: {
+          "1": String(j.config?.callRoutes?.["1"] || config.callRoutes["1"]),
+          "2": String(j.config?.callRoutes?.["2"] || config.callRoutes["2"]),
+          "3": String(j.config?.callRoutes?.["3"] || config.callRoutes["3"]),
+          "4": String(j.config?.callRoutes?.["4"] || config.callRoutes["4"]),
+          "5": String(j.config?.callRoutes?.["5"] || config.callRoutes["5"]),
+          "6": String(j.config?.callRoutes?.["6"] || config.callRoutes["6"]),
+          P: String(j.config?.callRoutes?.P || config.callRoutes.P),
+        },
         updatedAt: j.config?.updatedAt || new Date().toISOString(),
       });
     } catch (e: any) {
@@ -239,6 +268,34 @@ export default function SetupPage() {
             Used for Aerowinx developer/reference files (default: C:\Users\levis\OneDrive\Documents 1\Aerowinx\Developers).
           </span>
         </label>
+
+        <div className="rounded-md border border-neutral-200 dark:border-neutral-800 p-3">
+          <h4 className="text-sm font-semibold mb-2">Call Panel Phone Routing</h4>
+          <p className="text-[11px] opacity-70 mb-3">
+            Map call panel buttons 1-6 and P to destination phone numbers. Australian local mobile format is accepted (for example, 0401 495 110).
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {(["1", "2", "3", "4", "5", "6", "P"] as const).map((button) => (
+              <label key={button} className="text-xs">
+                <span className="block opacity-70 mb-1">Button {button}</span>
+                <input
+                  value={config.callRoutes[button]}
+                  onChange={(e) =>
+                    setConfig((c) => ({
+                      ...c,
+                      callRoutes: { ...c.callRoutes, [button]: e.target.value },
+                    }))
+                  }
+                  placeholder={button === "P" ? "0401 495 110" : "Optional"}
+                  className="w-full rounded-md border px-2 py-1 text-xs bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
+                />
+              </label>
+            ))}
+          </div>
+          <p className="text-[11px] opacity-60 mt-2">
+            Test trigger defaults to P -&gt; 0401 495 110 until you change it.
+          </p>
+        </div>
 
         <div className="flex flex-wrap gap-2">
           <button

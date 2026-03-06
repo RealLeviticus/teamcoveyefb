@@ -14,6 +14,37 @@ function buildUpstreamUrl(base: string, incoming: URL): URL {
   return out;
 }
 
+function summarizeUpstreamError(status: number, body: string): string {
+  const text = String(body || "").trim();
+  if (!text) return `Upstream audio request failed (HTTP ${status})`;
+  const looksHtml = /<!doctype html|<html[\s>]/i.test(text);
+  if (looksHtml) {
+    if (/error\s*1016|origin dns error/i.test(text)) {
+      return "Backend unavailable (Cloudflare 1016 Origin DNS error). Check backend DNS/tunnel and BACKEND_BASE_URL.";
+    }
+    return `Upstream audio request returned HTML error (HTTP ${status})`;
+  }
+  const oneLine = text.replace(/\s+/g, " ").trim();
+  return oneLine.slice(0, 220);
+}
+
+function jsonError(status: number, error: string, upstreamStatus?: number): Response {
+  return new Response(
+    JSON.stringify({
+      ok: false,
+      error,
+      ...(typeof upstreamStatus === "number" ? { upstreamStatus } : {}),
+    }),
+    {
+      status,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
+    },
+  );
+}
+
 export const onRequest: PagesFunction<Env> = async (context) => {
   const {
     BACKEND_BASE_URL: backendBase,
@@ -55,7 +86,19 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 
   const upstreamReq = new Request(upstreamUrl.toString(), reqInit);
-  const upstreamRes = await fetch(upstreamReq);
+  let upstreamRes: Response;
+  try {
+    upstreamRes = await fetch(upstreamReq);
+  } catch (err: any) {
+    return jsonError(502, `Audio proxy upstream fetch failed: ${err?.message || String(err)}`);
+  }
+
+  const contentType = String(upstreamRes.headers.get("content-type") || "").toLowerCase();
+  if (!upstreamRes.ok && !contentType.includes("application/json")) {
+    const raw = await upstreamRes.text().catch(() => "");
+    return jsonError(502, summarizeUpstreamError(upstreamRes.status, raw), upstreamRes.status);
+  }
+
   const responseHeaders = new Headers(upstreamRes.headers);
   responseHeaders.set("Cache-Control", "no-store");
 
@@ -64,4 +107,3 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     headers: responseHeaders,
   });
 };
-

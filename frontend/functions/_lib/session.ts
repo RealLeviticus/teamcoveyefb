@@ -3,6 +3,7 @@ import { parseCookies, serializeCookie } from "./cookies";
 export const SESSION_COOKIE = "efb_frontend_session";
 export const STATE_COOKIE = "efb_frontend_oauth_state";
 export const NEXT_COOKIE = "efb_frontend_oauth_next";
+export const FRONTEND_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export type FrontendSession = {
   sub: string;

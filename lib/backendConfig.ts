@@ -8,8 +8,12 @@ export type BackendConfig = {
   psxReferencesDir?: string;
   x32Host?: string;
   x32Port?: number;
+  callRoutes?: Partial<Record<CallButton, string>>;
   updatedAt?: string;
 };
+
+export type CallButton = "1" | "2" | "3" | "4" | "5" | "6" | "P";
+const CALL_BUTTONS: CallButton[] = ["1", "2", "3", "4", "5", "6", "P"];
 
 const DEFAULT_CONFIG_PATH = path.join(os.homedir(), ".teamcovey-efb", "backend-config.json");
 export const DEFAULT_PSX_REFERENCES_DIR = "C:\\Users\\levis\\OneDrive\\Documents 1\\Aerowinx\\Developers";
@@ -32,6 +36,18 @@ function cleanReferencesDir(v: unknown): string | undefined {
   return s || undefined;
 }
 
+function cleanCallRoutes(v: unknown): Partial<Record<CallButton, string>> | undefined {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const obj = v as Record<string, unknown>;
+  const out: Partial<Record<CallButton, string>> = {};
+  for (const button of CALL_BUTTONS) {
+    const raw = obj[button];
+    const s = String(raw ?? "").trim();
+    if (s) out[button] = s;
+  }
+  return out;
+}
+
 export function backendConfigPath(): string {
   const envPath = String(process.env.EFB_CONFIG_PATH || "").trim();
   return envPath || DEFAULT_CONFIG_PATH;
@@ -48,6 +64,7 @@ export function readBackendConfig(): BackendConfig {
       psxReferencesDir: cleanReferencesDir(parsed.psxReferencesDir),
       x32Host: cleanHost(parsed.x32Host),
       x32Port: parsePort(parsed.x32Port),
+      callRoutes: cleanCallRoutes(parsed.callRoutes),
       updatedAt: parsed.updatedAt,
     };
   } catch {
@@ -57,6 +74,10 @@ export function readBackendConfig(): BackendConfig {
 
 export function writeBackendConfig(next: Partial<BackendConfig>): BackendConfig {
   const current = readBackendConfig();
+  const hasCallRoutes = Object.prototype.hasOwnProperty.call(next, "callRoutes");
+  const cleanedCallRoutes = cleanCallRoutes(next.callRoutes);
+  const nextCallRoutes = hasCallRoutes ? cleanedCallRoutes : current.callRoutes;
+
   const merged: BackendConfig = {
     ...current,
     psxHost: cleanHost(next.psxHost) ?? current.psxHost,
@@ -64,6 +85,7 @@ export function writeBackendConfig(next: Partial<BackendConfig>): BackendConfig 
     psxReferencesDir: cleanReferencesDir(next.psxReferencesDir) ?? current.psxReferencesDir,
     x32Host: cleanHost(next.x32Host) ?? current.x32Host,
     x32Port: parsePort(next.x32Port) ?? current.x32Port,
+    callRoutes: nextCallRoutes && Object.keys(nextCallRoutes).length > 0 ? nextCallRoutes : undefined,
     updatedAt: new Date().toISOString(),
   };
   const file = backendConfigPath();

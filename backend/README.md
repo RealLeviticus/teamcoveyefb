@@ -18,6 +18,10 @@ Set these values:
 - `PSX_REFERENCES_DIR=C:\Users\levis\OneDrive\Documents 1\Aerowinx\Developers` (or your preferred path)
 - `X32_HOST=127.0.0.1` (or your mixer IP)
 - `X32_PORT=10023`
+- `EFB_CALL_MONITOR_ENABLED=1`
+- `EFB_CALL_PROVIDER=twilio` (or `webhook`)
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` (when using Twilio)
+- Optional button code overrides: `EFB_CALL_PANEL_CODE_1..6` and `EFB_CALL_PANEL_CODE_P`
 
 ## 2) Install and run
 
@@ -28,6 +32,27 @@ npm run start
 ```
 
 By default the backend serves on `http://0.0.0.0:3000`.
+
+## 2b) Build a backend Windows installer (.exe)
+
+From repo root:
+
+```powershell
+npm ci
+npm run dist:backend
+```
+
+The installer is generated in `dist-backend/` as:
+- `TeamCoveyEFB-Backend-Setup-<version>.exe`
+
+Install it on the PSX PC, launch "Team Covey EFB Backend", then open:
+- `http://localhost:3000/setup`
+- or from LAN: `http://<PSX-PC-IP>:3000/setup`
+
+Optional setup OAuth session lifetime:
+- `SETUP_SESSION_TTL_DAYS=30` (default 30)
+
+Backend setup OAuth sessions are persisted per device for 30 days by default.
 
 ## 3) Expose backend securely
 
@@ -41,10 +66,23 @@ The backend API rejects requests without `x-efb-service-token` when `EFB_REQUIRE
 Open:
 - `https://backend-api.teamcovey.org/setup`
 
-Login with Discord (role-gated), then configure PSX host/port, X32 host/port, and references folder.
+Login with Discord (role-gated), then configure PSX host/port, X32 host/port, call-panel phone routes, and references folder.
 The values are saved in:
 - `%ProgramData%\TeamCoveyEFB\backend-config.json` if `EFB_CONFIG_PATH` is set
 - otherwise `%USERPROFILE%\.teamcovey-efb\backend-config.json`
+
+## 4b) Call panel trigger test
+
+Use:
+
+```http
+POST /api/psx/call-monitor
+Content-Type: application/json
+
+{ "action": "simulate", "button": "P" }
+```
+
+This uses the same routing path as live PSX call-panel presses (Qh413).
 
 ## 5) Split-mode behavior
 

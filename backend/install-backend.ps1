@@ -19,6 +19,9 @@ if (-not (Test-Path $ConfigPath)) {
     psxReferencesDir = $PsxReferencesDir
     x32Host = "127.0.0.1"
     x32Port = 10023
+    callRoutes = @{
+      P = "0401 495 110"
+    }
   } | ConvertTo-Json
   $json | Out-File -FilePath $ConfigPath -Encoding utf8
   Write-Host "Created config file at $ConfigPath"

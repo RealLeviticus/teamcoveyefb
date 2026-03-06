@@ -113,6 +113,7 @@ See [README-ELECTRON.md](README-ELECTRON.md) for full development documentation.
 | `npm run build` | Build Next.js only |
 | `npm run dev` | Run Next.js server only |
 | `npm run lint` | Check code quality |
+| `npm run dist:backend` | Build backend-only Windows installer |
 
 ---
 

@@ -1,0 +1,51 @@
+{
+  "appId": "com.teamcovey.efb.backend",
+  "productName": "Team Covey EFB Backend",
+  "directories": {
+    "output": "dist-backend",
+    "buildResources": "public"
+  },
+  "files": [
+    "electron/backend-main.js",
+    ".next/standalone/**/*",
+    ".next/standalone/node_modules/**/*",
+    ".next/standalone/public/**/*",
+    ".next/static/**/*",
+    "public/**/*",
+    "package.json"
+  ],
+  "asarUnpack": [
+    ".next/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": ".next/standalone",
+      "to": "standalone",
+      "filter": [
+        "**/*"
+      ]
+    },
+    {
+      "from": "backend/.env.backend.example",
+      "to": ".env.backend.example"
+    }
+  ],
+  "extraMetadata": {
+    "main": "electron/backend-main.js"
+  },
+  "win": {
+    "target": [
+      "nsis"
+    ],
+    "artifactName": "TeamCoveyEFB-Backend-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "perMachine": false,
+    "allowElevation": true,
+    "runAfterFinish": true
+  }
+}

@@ -9,6 +9,7 @@ import { parseCookies } from "../_lib/cookies";
 import {
   appendSessionCookie,
   clearOauthCookies,
+  FRONTEND_SESSION_TTL_SECONDS,
   FrontendSession,
   NEXT_COOKIE,
   SESSION_COOKIE,
@@ -82,12 +83,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       username: user.username,
       roles: member.roles || [],
       iat: now,
-      exp: now + 60 * 60 * 12,
+      exp: now + FRONTEND_SESSION_TTL_SECONDS,
     };
     const signed = await signSession(payload, sessionSecret);
 
     const headers = new Headers(clearHeaders);
-    appendSessionCookie(headers, signed, secure, 60 * 60 * 12);
+    appendSessionCookie(headers, signed, secure, FRONTEND_SESSION_TTL_SECONDS);
     headers.set("Location", nextPath);
     return new Response(null, { status: 302, headers });
   } catch (err: any) {

@@ -9,8 +9,13 @@ type Body = {
   host?: string;
   port?: number;
   channel?: number;
+  bus?: number;
   on?: boolean;
   fader?: number;
+  sendOn?: boolean;
+  sendLevel?: number;
+  busOn?: boolean;
+  busFader?: number;
   mainOn?: boolean;
   mainFader?: number;
 };
@@ -89,23 +94,41 @@ export async function POST(req: NextRequest) {
       if (!channel || channel < 1 || channel > 32) {
         return Response.json({ ok: false, error: "channel must be between 1 and 32" }, { status: 400 });
       }
+      const busInput = toInt(body.bus);
+      if (typeof body.bus !== "undefined" && (!busInput || busInput < 1 || busInput > 16)) {
+        return Response.json({ ok: false, error: "bus must be between 1 and 16" }, { status: 400 });
+      }
+      const bus = busInput || 1;
       const ch = pad2(channel);
-      const [chOn, chFader, mainOn, mainFader] = await Promise.all([
+      const b = pad2(bus);
+      const [chOn, chFader, mainOn, mainFader, sendOn, sendLevel, busOn, busFader] = await Promise.all([
         queryX32(`/ch/${ch}/mix/on`, target),
         queryX32(`/ch/${ch}/mix/fader`, target),
         queryX32("/main/st/mix/on", target),
         queryX32("/main/st/mix/fader", target),
+        queryX32(`/ch/${ch}/mix/${b}/on`, target),
+        queryX32(`/ch/${ch}/mix/${b}/level`, target),
+        queryX32(`/bus/${b}/mix/on`, target),
+        queryX32(`/bus/${b}/mix/fader`, target),
       ]);
 
       if (!chOn.ok) return Response.json(chOn, { status: 502 });
       if (!chFader.ok) return Response.json(chFader, { status: 502 });
       if (!mainOn.ok) return Response.json(mainOn, { status: 502 });
       if (!mainFader.ok) return Response.json(mainFader, { status: 502 });
+      if (!sendOn.ok) return Response.json(sendOn, { status: 502 });
+      if (!sendLevel.ok) return Response.json(sendLevel, { status: 502 });
+      if (!busOn.ok) return Response.json(busOn, { status: 502 });
+      if (!busFader.ok) return Response.json(busFader, { status: 502 });
 
       const channelOn = (firstNumber(chOn.args) ?? 0) > 0;
       const channelFader = clamp01(firstNumber(chFader.args) ?? 0);
       const mainOnValue = (firstNumber(mainOn.args) ?? 0) > 0;
       const mainFaderValue = clamp01(firstNumber(mainFader.args) ?? 0);
+      const sendOnValue = (firstNumber(sendOn.args) ?? 0) > 0;
+      const sendLevelValue = clamp01(firstNumber(sendLevel.args) ?? 0);
+      const busOnValue = (firstNumber(busOn.args) ?? 0) > 0;
+      const busFaderValue = clamp01(firstNumber(busFader.args) ?? 0);
 
       return Response.json(
         {
@@ -113,10 +136,15 @@ export async function POST(req: NextRequest) {
           host: chOn.host,
           port: chOn.port,
           channel,
+          bus,
           channelOn,
           channelFader,
           mainOn: mainOnValue,
           mainFader: mainFaderValue,
+          sendOn: sendOnValue,
+          sendLevel: sendLevelValue,
+          busOn: busOnValue,
+          busFader: busFaderValue,
         },
         { status: 200 },
       );
@@ -153,6 +181,72 @@ export async function POST(req: NextRequest) {
       return Response.json(results, { status: results.ok ? 200 : 502 });
     }
 
+    if (action === "setbussend") {
+      const channel = toInt(body.channel);
+      if (!channel || channel < 1 || channel > 32) {
+        return Response.json({ ok: false, error: "channel must be between 1 and 32" }, { status: 400 });
+      }
+      const bus = toInt(body.bus);
+      if (!bus || bus < 1 || bus > 16) {
+        return Response.json({ ok: false, error: "bus must be between 1 and 16" }, { status: 400 });
+      }
+      const sendLevel = toFloat(body.sendLevel);
+      const sendOn = parseOptionalBool(body.sendOn);
+      if (typeof sendLevel !== "number" && typeof sendOn !== "boolean") {
+        return Response.json(
+          { ok: false, error: "Provide at least one of: sendLevel (0..1), sendOn (boolean)" },
+          { status: 400 },
+        );
+      }
+
+      const ch = pad2(channel);
+      const b = pad2(bus);
+      const results: any = { ok: true, channel, bus };
+      if (typeof sendOn === "boolean") {
+        const r = await sendX32(`/ch/${ch}/mix/${b}/on`, [sendOn ? 1 : 0], target);
+        results.sendOn = r;
+        if (!r.ok) results.ok = false;
+      }
+      if (typeof sendLevel === "number") {
+        const level = clamp01(sendLevel);
+        const r = await sendX32(`/ch/${ch}/mix/${b}/level`, [level], target);
+        results.sendLevel = { ...r, value: level };
+        if (!r.ok) results.ok = false;
+      }
+      return Response.json(results, { status: results.ok ? 200 : 502 });
+    }
+
+    if (action === "setbus") {
+      const bus = toInt(body.bus);
+      if (!bus || bus < 1 || bus > 16) {
+        return Response.json({ ok: false, error: "bus must be between 1 and 16" }, { status: 400 });
+      }
+      const fader = toFloat(body.busFader);
+      const on = parseOptionalBool(body.busOn);
+      if (typeof fader !== "number" && typeof on !== "boolean") {
+        return Response.json(
+          { ok: false, error: "Provide at least one of: busFader (0..1), busOn (boolean)" },
+          { status: 400 },
+        );
+      }
+
+      const b = pad2(bus);
+      const results: any = { ok: true, bus };
+      if (typeof on === "boolean") {
+        const r = await sendX32(`/bus/${b}/mix/on`, [on ? 1 : 0], target);
+        results.busOn = r;
+        if (!r.ok) results.ok = false;
+      }
+      if (typeof fader === "number") {
+        const level = clamp01(fader);
+        const r = await sendX32(`/bus/${b}/mix/fader`, [level], target);
+        results.busFader = { ...r, value: level };
+        if (!r.ok) results.ok = false;
+      }
+
+      return Response.json(results, { status: results.ok ? 200 : 502 });
+    }
+
     if (action === "setmain") {
       const fader = toFloat(body.mainFader);
       const on = parseOptionalBool(body.mainOn);
@@ -180,11 +274,10 @@ export async function POST(req: NextRequest) {
     }
 
     return Response.json(
-      { ok: false, error: "invalid action; expected ping|status|setChannel|setMain" },
+      { ok: false, error: "invalid action; expected ping|status|setChannel|setBusSend|setBus|setMain" },
       { status: 400 },
     );
   } catch (err: any) {
     return Response.json({ ok: false, error: err?.message || String(err) }, { status: 500 });
   }
 }
-

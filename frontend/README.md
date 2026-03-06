@@ -35,6 +35,7 @@ Set OAuth redirect URI to:
 - `https://efb.teamcovey.org/auth/callback`
 
 The login flow checks the member's role IDs inside `DISCORD_GUILD_ID`. Users without one of `DISCORD_ALLOWED_ROLE_IDS` are denied.
+Successful frontend OAuth sessions are persisted per device for 30 days.
 
 ## 4) Local preview
 

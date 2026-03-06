@@ -1,4 +1,5 @@
 import {
+  type CallButton,
   readBackendConfig,
   resolvePsxReferencesDir,
   resolvePsxTarget,
@@ -32,6 +33,21 @@ function parsePath(v: unknown): string | undefined {
   return s || undefined;
 }
 
+const CALL_BUTTONS: CallButton[] = ["1", "2", "3", "4", "5", "6", "P"];
+
+function parseCallRoutes(v: unknown): Partial<Record<CallButton, string>> | undefined {
+  if (typeof v === "undefined") return undefined;
+  if (v == null) return {};
+  if (typeof v !== "object" || Array.isArray(v)) return undefined;
+  const obj = v as Record<string, unknown>;
+  const out: Partial<Record<CallButton, string>> = {};
+  for (const button of CALL_BUTTONS) {
+    const s = String(obj[button] ?? "").trim();
+    if (s) out[button] = s;
+  }
+  return out;
+}
+
 function unauthorized() {
   return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 }
@@ -52,6 +68,7 @@ export async function GET(req: Request) {
         psxReferencesDir: cfg.psxReferencesDir || referencesDir,
         x32Host: cfg.x32Host || x32.host,
         x32Port: cfg.x32Port || x32.port,
+        callRoutes: cfg.callRoutes || { P: "0401 495 110" },
         updatedAt: cfg.updatedAt || null,
       },
       runtime: {
@@ -78,12 +95,21 @@ export async function POST(req: Request) {
   const psxReferencesDir = parsePath(body.psxReferencesDir);
   const x32Host = parseHost(body.x32Host);
   const x32Port = parsePort(body.x32Port);
+  const callRoutes = parseCallRoutes(body.callRoutes);
   if (!psxHost) return bad("psxHost is required");
   if (!psxPort) return bad("psxPort must be between 1 and 65535");
   if ("psxReferencesDir" in body && !psxReferencesDir) return bad("psxReferencesDir must be a non-empty path");
   if ("x32Host" in body && !x32Host) return bad("x32Host must be a non-empty host");
   if ("x32Port" in body && !x32Port) return bad("x32Port must be between 1 and 65535");
+  if ("callRoutes" in body && !callRoutes) return bad("callRoutes must be an object keyed by 1..6 and P");
 
-  const saved = writeBackendConfig({ psxHost, psxPort, psxReferencesDir, x32Host, x32Port });
+  const saved = writeBackendConfig({
+    psxHost,
+    psxPort,
+    psxReferencesDir,
+    x32Host,
+    x32Port,
+    ...("callRoutes" in body ? { callRoutes } : {}),
+  });
   return Response.json({ ok: true, config: saved }, { status: 200 });
 }

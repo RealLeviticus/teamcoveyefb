@@ -18,6 +18,7 @@ wrangler-dev.err
 
 # Electron
 dist-electron/
+dist-backend/
 release/
 
 # TypeScript

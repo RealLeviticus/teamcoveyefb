@@ -9,6 +9,7 @@ import {
   makeSetupSessionToken,
   oauthCallbackUrl,
   safeNextPath,
+  setupSessionTtlSeconds,
   setupCookie,
 } from "@/lib/setupAuth";
 
@@ -102,15 +103,16 @@ export async function GET(req: Request): Promise<Response> {
     }
 
     const now = Math.floor(Date.now() / 1000);
+    const ttlSeconds = setupSessionTtlSeconds();
     const payload: SetupSession = {
       sub: user.id,
       username: user.username,
       roles: member.roles || [],
       iat: now,
-      exp: now + 60 * 60 * 12,
+      exp: now + ttlSeconds,
     };
     const signed = makeSetupSessionToken(payload, cfg.env.sessionSecret);
-    setupCookie(headers, SETUP_SESSION_COOKIE, signed, secure, 60 * 60 * 12);
+    setupCookie(headers, SETUP_SESSION_COOKIE, signed, secure, ttlSeconds);
     headers.set("Location", nextPath);
     return new Response(null, { status: 302, headers });
   } catch (err: any) {
