@@ -57,6 +57,8 @@ const rightGroups: DoorKey[][] = [
 export default function DoorsPanel() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string>("");
+  const [statusSource, setStatusSource] = useState<"unknown" | "live" | "cache">("unknown");
+  const [hasControl, setHasControl] = useState<boolean | null>(null);
 
   const [open, setOpen] = useState<Record<DoorKey, boolean>>(
     () => Object.fromEntries(order.map((k) => [k, false])) as Record<DoorKey, boolean>
@@ -107,6 +109,13 @@ export default function DoorsPanel() {
             return next;
           });
         }
+
+        if (j.source === "live" || j.source === "cache") {
+          setStatusSource(j.source);
+        }
+        if ("hasControl" in j) {
+          setHasControl(typeof j.hasControl === "boolean" ? j.hasControl : null);
+        }
       } catch {
         // ignore polling errors
       }
@@ -130,6 +139,7 @@ export default function DoorsPanel() {
       });
       const j = await res.json();
       setResult(j?.ok ? "Control requested" : `Error: ${j?.error || `HTTP ${res.status}`}`);
+      if (j?.ok) setHasControl(true);
     } catch (e: any) {
       setResult(`Error: ${e?.message || String(e)}`);
     }
@@ -218,13 +228,34 @@ export default function DoorsPanel() {
     );
   }
 
+  const openCount = order.reduce((acc, k) => acc + (open[k] ? 1 : 0), 0);
+
   return (
     <section className="rounded-lg border border-neutral-200 dark:border-neutral-800">
-      <header className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60">
+      <header className="px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/60 flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold">Doors</h3>
+        <button
+          type="button"
+          onClick={() => void takeControl()}
+          className="text-[11px] px-2 py-1 rounded-md border bg-white/70 dark:bg-neutral-900/40 hover:bg-white dark:hover:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
+        >
+          Take Control
+        </button>
       </header>
 
       <div className="p-3 space-y-4 text-sm">
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="px-2 py-0.5 rounded-full border border-neutral-300 dark:border-neutral-700">
+            Open {openCount}/{order.length}
+          </span>
+          <span className="px-2 py-0.5 rounded-full border border-neutral-300 dark:border-neutral-700">
+            Status {statusSource === "live" ? "Live PSX" : statusSource === "cache" ? "Cache Fallback" : "Unknown"}
+          </span>
+          <span className="px-2 py-0.5 rounded-full border border-neutral-300 dark:border-neutral-700">
+            Control {hasControl == null ? "Unknown" : hasControl ? "Acquired" : "Not Acquired"}
+          </span>
+        </div>
+
         {/* Nose buttons at the top, centred */}
         <div className="flex justify-center gap-2 flex-wrap">
           {noseGroup.map((k) => (

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { sendQ } from "@/lib/psxClient";
+import { resolvePsxTarget } from "@/lib/backendConfig";
 import { psxIntRangeError } from "@/lib/psxVariables";
 
 export const runtime = "nodejs";
@@ -52,6 +53,79 @@ function bitsToMap(bits: number | undefined): Record<DoorKey, boolean> {
 // Cached last-known bits we’ve sent to PSX (so status has something real to return)
 let lastOpenBits: number | undefined;
 let lastManualBits: number | undefined;
+let lastDoorComBits: number | undefined;
+
+function parseLastIntLine(blob: string, code: "Qi179" | "Qi180" | "Qi181"): number | undefined {
+  const re = new RegExp(`\\b${code}=(-?\\d+)\\b`, "g");
+  let match: RegExpExecArray | null = null;
+  let value: number | undefined;
+  while (true) {
+    match = re.exec(blob);
+    if (!match) break;
+    const n = Number.parseInt(match[1], 10);
+    if (Number.isFinite(n)) value = n;
+  }
+  return value;
+}
+
+async function readLiveDoorBits(waitMs = 450): Promise<
+  | {
+      openBits?: number;
+      manualBits?: number;
+      comBits?: number;
+    }
+  | null
+> {
+  const { host, port } = resolvePsxTarget();
+  const net = await import("node:net");
+
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let done = false;
+    let received = "";
+
+    const finish = (ok: boolean) => {
+      if (done) return;
+      done = true;
+      try {
+        socket.end();
+        socket.destroy();
+      } catch {}
+      if (!ok) {
+        resolve(null);
+        return;
+      }
+      const openBits = parseLastIntLine(received, "Qi180");
+      const manualBits = parseLastIntLine(received, "Qi181");
+      const comBits = parseLastIntLine(received, "Qi179");
+      if (
+        typeof openBits !== "number" &&
+        typeof manualBits !== "number" &&
+        typeof comBits !== "number"
+      ) {
+        resolve(null);
+        return;
+      }
+      resolve({ openBits, manualBits, comBits });
+    };
+
+    socket.setTimeout(2000);
+    socket.on("timeout", () => finish(false));
+    socket.on("error", () => finish(false));
+    socket.on("data", (buf: Buffer) => {
+      received += buf.toString("utf8");
+    });
+
+    socket.connect(port, host, () => {
+      try {
+        socket.write("bang\r\n", "utf8");
+        setTimeout(() => finish(true), Math.max(100, Math.min(2000, Math.round(waitMs))));
+      } catch {
+        finish(false);
+      }
+    });
+  });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -91,14 +165,31 @@ export async function POST(req: NextRequest) {
       const rangeErr = psxIntRangeError("Qi179", 32);
       if (rangeErr) return Response.json({ ok: false, error: rangeErr }, { status: 400 });
       const r = await sendQ("Qi179", "32");
+      if (r.ok) lastDoorComBits = 32;
       return Response.json(r, { status: r.ok ? 200 : 502 });
     }
 
     if (action === "status") {
-      // Decode last-known bits into maps; if we’ve never set anything, this will be all false
+      const live = await readLiveDoorBits();
+      if (typeof live?.openBits === "number") lastOpenBits = live.openBits;
+      if (typeof live?.manualBits === "number") lastManualBits = live.manualBits;
+      if (typeof live?.comBits === "number") lastDoorComBits = live.comBits;
+
       const open = bitsToMap(lastOpenBits);
       const manual = bitsToMap(lastManualBits);
-      return Response.json({ ok: true, open, manual }, { status: 200 });
+      const comBits = typeof lastDoorComBits === "number" ? lastDoorComBits : null;
+      const hasControl = typeof comBits === "number" ? !!(comBits & 32) : null;
+      return Response.json(
+        {
+          ok: true,
+          open,
+          manual,
+          doorComBits: comBits,
+          hasControl,
+          source: live ? "live" : "cache",
+        },
+        { status: 200 },
+      );
     }
 
     return Response.json(
