@@ -1,4 +1,10 @@
-import { readBackendConfig, resolvePsxReferencesDir, resolvePsxTarget, writeBackendConfig } from "@/lib/backendConfig";
+import {
+  readBackendConfig,
+  resolvePsxReferencesDir,
+  resolvePsxTarget,
+  resolveX32Target,
+  writeBackendConfig,
+} from "@/lib/backendConfig";
 import { readSetupSession } from "@/lib/setupAuth";
 
 export const runtime = "nodejs";
@@ -35,6 +41,7 @@ export async function GET(req: Request) {
   if (!session) return unauthorized();
   const cfg = readBackendConfig();
   const target = resolvePsxTarget();
+  const x32 = resolveX32Target();
   const referencesDir = resolvePsxReferencesDir();
   return Response.json(
     {
@@ -43,13 +50,18 @@ export async function GET(req: Request) {
         psxHost: cfg.psxHost || target.host,
         psxPort: cfg.psxPort || target.port,
         psxReferencesDir: cfg.psxReferencesDir || referencesDir,
+        x32Host: cfg.x32Host || x32.host,
+        x32Port: cfg.x32Port || x32.port,
         updatedAt: cfg.updatedAt || null,
       },
       runtime: {
         psxHost: target.host,
         psxPort: target.port,
         psxReferencesDir: referencesDir,
+        x32Host: x32.host,
+        x32Port: x32.port,
         clientOverrideEnabled: process.env.EFB_ALLOW_CLIENT_PSX_TARGET === "1",
+        clientX32OverrideEnabled: process.env.EFB_ALLOW_CLIENT_X32_TARGET === "1",
         serviceTokenRequired: process.env.EFB_REQUIRE_SERVICE_TOKEN === "1",
       },
     },
@@ -64,10 +76,14 @@ export async function POST(req: Request) {
   const psxHost = parseHost(body.psxHost);
   const psxPort = parsePort(body.psxPort);
   const psxReferencesDir = parsePath(body.psxReferencesDir);
+  const x32Host = parseHost(body.x32Host);
+  const x32Port = parsePort(body.x32Port);
   if (!psxHost) return bad("psxHost is required");
   if (!psxPort) return bad("psxPort must be between 1 and 65535");
   if ("psxReferencesDir" in body && !psxReferencesDir) return bad("psxReferencesDir must be a non-empty path");
+  if ("x32Host" in body && !x32Host) return bad("x32Host must be a non-empty host");
+  if ("x32Port" in body && !x32Port) return bad("x32Port must be between 1 and 65535");
 
-  const saved = writeBackendConfig({ psxHost, psxPort, psxReferencesDir });
+  const saved = writeBackendConfig({ psxHost, psxPort, psxReferencesDir, x32Host, x32Port });
   return Response.json({ ok: true, config: saved }, { status: 200 });
 }

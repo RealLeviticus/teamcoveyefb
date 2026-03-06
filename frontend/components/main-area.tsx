@@ -10,6 +10,7 @@ import { loadSettings, SETTINGS_UPDATE_EVENT } from "@/lib/settings";
 // Adjust these import paths if your components live elsewhere
 import PsxDirectPanel from "@/components/PsxDirectPanel";
 import Doors747 from "@/components/Doors747";
+import AudioX32Panel from "@/components/AudioX32Panel";
 
 const VIEWS = [
   "flight",
@@ -1940,8 +1941,13 @@ export function MainArea() {
 
           {/* Audio */}
           {view === "audio" && (
-            <div className="h-full flex items-center justify-center opacity-70">
-              <p>Audio: ATIS/TTS, briefings, or recorded calls.</p>
+            <div className="h-full overflow-auto space-y-3">
+              <div className="p-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/40">
+                <div className="text-[10px] uppercase tracking-wide opacity-60 mb-2">
+                  Behringer X32 Control
+                </div>
+                <AudioX32Panel />
+              </div>
             </div>
           )}
         </div>

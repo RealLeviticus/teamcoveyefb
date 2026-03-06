@@ -50,6 +50,7 @@ npm run cf:preview
 Browser calls still use `/api/...`.
 Pages Functions route these as:
 - `/api/psx/*` -> forwarded to `${BACKEND_BASE_URL}/api/psx/*` with `x-efb-service-token`
+- `/api/audio/*` -> forwarded to `${BACKEND_BASE_URL}/api/audio/*` with `x-efb-service-token`
 - `/api/simbrief/*`, `/api/vatsim/*`, `/api/wx/*`, `/api/acars/*` -> served directly on Cloudflare Pages
 
 ## 6) 404 checklist for custom domain

@@ -6,6 +6,8 @@ export type BackendConfig = {
   psxHost?: string;
   psxPort?: number;
   psxReferencesDir?: string;
+  x32Host?: string;
+  x32Port?: number;
   updatedAt?: string;
 };
 
@@ -44,6 +46,8 @@ export function readBackendConfig(): BackendConfig {
       psxHost: cleanHost(parsed.psxHost),
       psxPort: parsePort(parsed.psxPort),
       psxReferencesDir: cleanReferencesDir(parsed.psxReferencesDir),
+      x32Host: cleanHost(parsed.x32Host),
+      x32Port: parsePort(parsed.x32Port),
       updatedAt: parsed.updatedAt,
     };
   } catch {
@@ -58,6 +62,8 @@ export function writeBackendConfig(next: Partial<BackendConfig>): BackendConfig 
     psxHost: cleanHost(next.psxHost) ?? current.psxHost,
     psxPort: parsePort(next.psxPort) ?? current.psxPort,
     psxReferencesDir: cleanReferencesDir(next.psxReferencesDir) ?? current.psxReferencesDir,
+    x32Host: cleanHost(next.x32Host) ?? current.x32Host,
+    x32Port: parsePort(next.x32Port) ?? current.x32Port,
     updatedAt: new Date().toISOString(),
   };
   const file = backendConfigPath();
@@ -81,6 +87,25 @@ export function resolvePsxTarget(overrides?: { host?: string; port?: number }) {
     parsePort(cfg.psxPort) ||
     parsePort(process.env.PSX_PORT) ||
     10747;
+
+  return { host, port };
+}
+
+export function resolveX32Target(overrides?: { host?: string; port?: number }) {
+  const cfg = readBackendConfig();
+  const allowClientOverride = process.env.EFB_ALLOW_CLIENT_X32_TARGET === "1";
+
+  const host =
+    (allowClientOverride ? cleanHost(overrides?.host) : undefined) ||
+    cleanHost(cfg.x32Host) ||
+    cleanHost(process.env.X32_HOST) ||
+    "127.0.0.1";
+
+  const port =
+    (allowClientOverride ? parsePort(overrides?.port) : undefined) ||
+    parsePort(cfg.x32Port) ||
+    parsePort(process.env.X32_PORT) ||
+    10023;
 
   return { host, port };
 }

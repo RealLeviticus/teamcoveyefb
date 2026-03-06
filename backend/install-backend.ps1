@@ -17,6 +17,8 @@ if (-not (Test-Path $ConfigPath)) {
     psxHost = "127.0.0.1"
     psxPort = 10747
     psxReferencesDir = $PsxReferencesDir
+    x32Host = "127.0.0.1"
+    x32Port = 10023
   } | ConvertTo-Json
   $json | Out-File -FilePath $ConfigPath -Encoding utf8
   Write-Host "Created config file at $ConfigPath"
@@ -36,4 +38,4 @@ Write-Host "Next steps:"
 Write-Host "1) Edit .env.backend"
 Write-Host "2) Set env vars from .env.backend in your service manager"
 Write-Host "3) Run: npm ci && npm run build && npm run start"
-Write-Host "4) Open /setup and sign in with Discord to finalize PSX host/port/references folder"
+Write-Host "4) Open /setup and sign in with Discord to finalize PSX + X32 host/port and references folder"

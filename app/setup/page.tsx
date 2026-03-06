@@ -11,6 +11,8 @@ type SetupConfig = {
   psxHost: string;
   psxPort: number;
   psxReferencesDir: string;
+  x32Host: string;
+  x32Port: number;
   updatedAt?: string | null;
 };
 
@@ -24,6 +26,8 @@ export default function SetupPage() {
     psxHost: "127.0.0.1",
     psxPort: 10747,
     psxReferencesDir: "C:\\Users\\levis\\OneDrive\\Documents 1\\Aerowinx\\Developers",
+    x32Host: "127.0.0.1",
+    x32Port: 10023,
   });
 
   useEffect(() => {
@@ -77,6 +81,8 @@ export default function SetupPage() {
         psxReferencesDir: String(
           j.config?.psxReferencesDir || "C:\\Users\\levis\\OneDrive\\Documents 1\\Aerowinx\\Developers",
         ),
+        x32Host: String(j.config?.x32Host || "127.0.0.1"),
+        x32Port: Number(j.config?.x32Port || 10023),
         updatedAt: j.config?.updatedAt || null,
       });
     } catch (e: any) {
@@ -102,6 +108,8 @@ export default function SetupPage() {
         psxHost: String(j.config?.psxHost || config.psxHost),
         psxPort: Number(j.config?.psxPort || config.psxPort),
         psxReferencesDir: String(j.config?.psxReferencesDir || config.psxReferencesDir),
+        x32Host: String(j.config?.x32Host || config.x32Host),
+        x32Port: Number(j.config?.x32Port || config.x32Port),
         updatedAt: j.config?.updatedAt || new Date().toISOString(),
       });
     } catch (e: any) {
@@ -168,7 +176,7 @@ export default function SetupPage() {
       </div>
 
       <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-4 space-y-3">
-        <h3 className="text-sm font-semibold">PSX Connection</h3>
+        <h3 className="text-sm font-semibold">PSX and Audio Connections</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="text-sm">
@@ -188,6 +196,30 @@ export default function SetupPage() {
                 setConfig((c) => ({
                   ...c,
                   psxPort: Number.parseInt(e.target.value || "0", 10) || 0,
+                }))
+              }
+              inputMode="numeric"
+              className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
+            />
+          </label>
+
+          <label className="text-sm">
+            <span className="block text-xs opacity-70 mb-1">X32 Host</span>
+            <input
+              value={config.x32Host}
+              onChange={(e) => setConfig((c) => ({ ...c, x32Host: e.target.value }))}
+              className="w-full rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
+            />
+          </label>
+
+          <label className="text-sm">
+            <span className="block text-xs opacity-70 mb-1">X32 Port</span>
+            <input
+              value={String(config.x32Port)}
+              onChange={(e) =>
+                setConfig((c) => ({
+                  ...c,
+                  x32Port: Number.parseInt(e.target.value || "0", 10) || 0,
                 }))
               }
               inputMode="numeric"
@@ -242,6 +274,7 @@ export default function SetupPage() {
           <li>Set `EFB_REQUIRE_SERVICE_TOKEN=1` on this backend in production.</li>
           <li>Set the same token value in Cloudflare Pages as `BACKEND_SERVICE_TOKEN`.</li>
           <li>Keep `EFB_ALLOW_CLIENT_PSX_TARGET=0` so users cannot override host/port from the public app.</li>
+          <li>Keep `EFB_ALLOW_CLIENT_X32_TARGET=0` so users cannot override mixer target from the public app.</li>
           <li>Set references folder to `C:\Users\levis\OneDrive\Documents 1\Aerowinx\Developers` unless you use another PSX docs path.</li>
         </ul>
       </div>
